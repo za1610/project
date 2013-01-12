@@ -1,0 +1,96 @@
+===========================================================================
+
+TRACE # 1
+Tag = 0x00007f0effb208d6
+Thread = 2641
+Size = 36
+Body:
+  -------- indirect branch target entry: --------
+  0x0000000040bc1098  67 65 48 a1 00 00 00 addr32 mov    %gs:0x00 -> %rax 
+                      00
+  -------- prefix entry: --------
+  0x0000000040bc10a0  65 48 8b 0c 25 10 00 mov    %gs:0x10 -> %rcx 
+                      00 00
+  -------- normal entry: --------
+  0x0000000040bc10a9  48 ff c7             inc    %rdi -> %rdi 
+  0x0000000040bc10ac  48 ff c6             inc    %rsi -> %rsi 
+  0x0000000040bc10af  84 c0                test   %al %al 
+  0x0000000040bc10b1  0f 85 62 ff ff ff    jnz    $0x0000000040bc1019 
+  0x0000000040bc10b7  e9 13 27 01 00       jmp    $0x0000000040bd37cf 
+  -------- exit stub 0: -------- <target: 0x00007f0effb208d0> type: jmp/jcc
+  0x0000000040bd37cf  67 65 48 a3 00 00 00 addr32 mov    %rax -> %gs:0x00 
+                      00
+  0x0000000040bd37d7  48 b8 90 27 ca 40 00 mov    $0x0000000040ca2790 -> %rax 
+                      00 00 00
+  0x0000000040bd37e1  e9 da 69 fc ff       jmp    $0x0000000040b9a1c0 <fcache_return> 
+  -------- exit stub 1: -------- <target: 0x00007f0effb208e0> type: jmp/jcc
+  0x0000000040bd37cf  67 65 48 a3 00 00 00 addr32 mov    %rax -> %gs:0x00 
+                      00
+  0x0000000040bd37d7  48 b8 90 27 ca 40 00 mov    $0x0000000040ca2790 -> %rax 
+                      00 00 00
+  0x0000000040bd37e1  e9 da 69 fc ff       jmp    $0x0000000040b9a1c0 <fcache_return> 
+END TRACE 1
+
+===========================================================================
+
+TRACE # 2
+Tag = 0x00007f0effb208d0
+Thread = 2641
+Size = 134
+Body:
+  -------- indirect branch target entry: --------
+  0x0000000040bc1008  67 65 48 a1 00 00 00 addr32 mov    %gs:0x00 -> %rax 
+                      00
+  -------- prefix entry: --------
+  0x0000000040bc1010  65 48 8b 0c 25 10 00 mov    %gs:0x10 -> %rcx 
+                      00 00
+  -------- normal entry: --------
+  0x0000000040bc1019  8a 07                mov    (%rdi) -> %al 
+  0x0000000040bc101b  3a 06                cmp    %al (%rsi) 
+  0x0000000040bc101d  0f 84 86 00 00 00    jz     $0x0000000040bc10a9 
+  0x0000000040bc1023  b8 01 00 00 00       mov    $0x00000001 -> %eax 
+  0x0000000040bc1028  b9 ff ff ff ff       mov    $0xffffffff -> %ecx 
+  0x0000000040bc102d  0f 42 c1             cmovb  %ecx %eax -> %eax 
+  0x0000000040bc1030  65 48 89 0c 25 10 00 mov    %rcx -> %gs:0x10 
+                      00 00
+  0x0000000040bc1039  59                   pop    %rsp (%rsp) -> %rcx %rsp 
+  0x0000000040bc103a  65 48 a3 00 00 00 00 mov    %rax -> %gs:0x00 
+                      00 00 00 00
+  0x0000000040bc1045  48 b8 84 84 b1 ff 0e mov    $0x00007f0effb18484 -> %rax 
+                      7f 00 00
+  0x0000000040bc104f  65 48 a3 08 00 00 00 mov    %rax -> %gs:0x08 
+                      00 00 00 00
+  0x0000000040bc105a  9f                   lahf   -> %ah 
+  0x0000000040bc105b  0f 90 c0             seto   -> %al 
+  0x0000000040bc105e  65 48 3b 0c 25 08 00 cmp    %rcx %gs:0x08 
+                      00 00
+  0x0000000040bc1067  0f 85 a2 92 fd ff    jnz    $0x0000000040b9a30f <shared_trace_cmp_ret>
+  0x0000000040bc106d  65 48 8b 0c 25 10 00 mov    %gs:0x10 -> %rcx 
+                      00 00
+  0x0000000040bc1076  65 48 a1 00 00 00 00 mov    %gs:0x00 -> %rax 
+                      00 00 00 00
+  0x0000000040bc1081  85 c0                test   %eax %eax 
+  0x0000000040bc1083  0f 85 6f 0a 01 00    jnz    $0x0000000040bd1af8 
+  0x0000000040bc1089  e9 6a 0a 01 00       jmp    $0x0000000040bd1af8 
+  -------- exit stub 0: -------- <target: 0x00007f0effb208d6> type: jmp/jcc
+  0x0000000040bd1ae1  67 65 48 a3 00 00 00 addr32 mov    %rax -> %gs:0x00 
+                      00
+  0x0000000040bd1ae9  48 b8 b8 73 be 40 00 mov    $0x0000000040be73b8 -> %rax 
+                      00 00 00
+  0x0000000040bd1af3  e9 c8 86 fc ff       jmp    $0x0000000040b9a1c0 <fcache_return> 
+  -------- exit stub 1: -------- <target: 0x0000000040b9a30f> type: ret
+  <no stub created since linked>
+  -------- exit stub 2: -------- <target: 0x00007f0effb18470> type: jmp/jcc
+  0x0000000040bd1af8  67 65 48 a3 00 00 00 addr32 mov    %rax -> %gs:0x00 
+                      00
+  0x0000000040bd1b00  48 b8 dc 73 be 40 00 mov    $0x0000000040be73dc -> %rax 
+                      00 00 00
+  0x0000000040bd1b0a  e9 b1 86 fc ff       jmp    $0x0000000040b9a1c0 <fcache_return> 
+  -------- exit stub 3: -------- <target: 0x00007f0effb18488> type: jmp/jcc
+  0x0000000040bd1af8  67 65 48 a3 00 00 00 addr32 mov    %rax -> %gs:0x00 
+                      00
+  0x0000000040bd1b00  48 b8 dc 73 be 40 00 mov    $0x0000000040be73dc -> %rax 
+                      00 00 00
+  0x0000000040bd1b0a  e9 b1 86 fc ff       jmp    $0x0000000040b9a1c0 <fcache_return> 
+END TRACE 2
+
