@@ -69,7 +69,7 @@ exit_event(void)
     int len;
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "Instrumentation results:\n"
-                      "  saw %d div instructions\n"
+                      "  saw %d addss instructions\n"
                       "  of which %d were powers of 2\n",
                       div_count, div_p2_count);
     DR_ASSERT(len > 0);
@@ -95,30 +95,27 @@ callback(app_pc addr, uint divisor)
 
     dr_mutex_unlock(count_mutex);
 }*/
-static void callback(instr_t* instr, int opcode){
-printf("IN callback \n");
-        if (opcode == OP_addss) { 
-		printf("opcode is addss  %d\n", opcode);
-	    	printf("number of sources  %d\n", instr_num_srcs(instr));  
-	    	printf("number of dests  %d\n", instr_num_dsts(instr));
-if(instr_reads_memory(instr)){
-	    	printf("some of the  sources is memory \n");  
-} 
-if(opnd_is_memory_reference(instr_get_src(instr,0))){
-	    	printf("source is opnd  memory and num of regs is %d\n", opnd_num_regs_used(instr_get_src(instr, 0))); 
-reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
-printf("register used is %s\n", get_register_name(r));
-}
- 
-	    	printf("source  %d\n", instr_get_src(instr,0));  
-		printf("dest  %d\n", instr_get_dst(instr,0));  
-}
-}
 
 static void
-callback1(app_pc addr, instr_t* instr){
-int op = 5;
-printf("in callback %d\n", op);
+callback1(float op, app_pc  instr){
+	printf("IN CALLBACK OP %f\n", op);
+	printf("IN CALLBACK INSTR %d\n",instr);
+// printf("???number of sources cl  %d\n", instr_num_srcs(instr));  
+// printf("????number of dests cl %d\n", instr_num_dsts(instr));
+//	opnd_t source1 = instr_get_src(instr,0);
+//	printf("IN CALLBACK SOURCE %d\n", source1);
+/*
+	if(opnd_is_base_disp(source1)){
+		printf("CALLBACK base+disp opnd \n");
+		reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
+		printf("CALCBACK register used is %s\n", get_register_name(r));
+		int disp = opnd_get_disp(source1);
+		printf("CALLBACK displacement in src is %d\n", disp);
+		opnd_t m = OPND_CREATE_MEMPTR(r, disp);
+		printf("CALLBACK uint %llu\n", m);
+	}
+
+*/
 }
 
 static dr_emit_flags_t
@@ -126,47 +123,85 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr, *next_instr;
     int opcode;
-printf("here\n");
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
-	//if(opcode >= 300)
-//		printf("opcode is  %d\n", opcode);
-        /* if find div, insert a clean call to our instrumentation routine */
 if(instr_is_floating(instr)){
 	    	printf("Floating point instruction \n");  
 }
 if(instr_is_mmx(instr)){
 	    	printf("MMX instruction \n");  
 }
-        if (opcode == OP_addss) { 
-		printf("opcode is addss  %d\n", opcode);
-	    	printf("number of sources  %d\n", instr_num_srcs(instr));  
-	    	printf("number of dests  %d\n", instr_num_dsts(instr));
-if(instr_reads_memory(instr)){
-	    	printf("some of the  sources is memory \n");  
-} 
-if(opnd_is_memory_reference(instr_get_src(instr,0))){
-	    	printf("source is opnd  memory and num of regs is %d\n", opnd_num_regs_used(instr_get_src(instr, 0))); 
-if(opnd_is_memory_reference(instr_get_dst(instr,0)))
-	    	printf("dest is opnd  memory and num of regs is %d\n", opnd_num_regs_used(instr_get_dst(instr, 0)));
- 
-reg_id_t r1 = opnd_get_reg_used(instr_get_dst(instr, 0), 0);
-printf("register in dest is %s\n", get_register_name(r1));
-dr_mcontext_t mc = {sizeof(mc),DR_MC_ALL};
-printf("value in dest reg  is %d\n", reg_get_value(r1,&mc ));
-reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
-printf("register used is %s\n", get_register_name(r));
+/*
+if(opcode == OP_add){
+	if(instr_reads_memory(instr)){
+ 		printf("reads memory in source \n");  		 
+		opnd_t source1 = instr_get_src(instr,0);
+		opnd_t source2 = instr_get_src(instr,1);
+		opnd_t dest = instr_get_dst(instr,0);
 
-printf("displacement in src is %d\n", opnd_get_disp(instr_get_src(instr,0)));
-printf("value in src reg  is %d\n", reg_get_value(r,&mc ));
+	if(opnd_is_base_disp(source1)){
+		printf("base+disp opnd \n");
+
+		reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
+		printf("register used is %s\n", get_register_name(r));
+		int disp = opnd_get_disp(source1);
+		printf("displacement in src is %d\n", disp);
+		opnd_t m = OPND_CREATE_MEMPTR(r, disp);
+
+		printf("uint %d\n", m);
+		printf("uint %d\n", instr);
+    	printf("number of sourcesbefore cl  %d\n", instr_num_srcs(instr));  
+    	printf("number of dests before cl %d\n", instr_num_dsts(instr));
+	dr_insert_clean_call(drcontext, bb, instr, (void*) callback1, false, 2,OPND_CREATE_INTPTR( opcode),OPND_CREATE_INTPTR(instr));// OPND_CREATE_MEMPTR(r,disp)); 
+	}
+	}
+}*/
+if (opcode == OP_addss) { 
+	printf("opcode is addss  %d\n", opcode);
+    	printf("number of sources  %d\n", instr_num_srcs(instr));  
+    	printf("number of dests  %d\n", instr_num_dsts(instr));
+	opnd_t source1 = instr_get_src(instr,0);
+	opnd_t source2 = instr_get_src(instr,1);
+	opnd_t dest = instr_get_dst(instr,0);
+//	if(instr_reads_memory(instr)){
+//    		printf("reads memory in source \n");  
+//	} 
+	if(opnd_is_memory_reference(source1)){
+//float * f = instr_get_src(instr, 0);
+//printf("value is %f", f);
+	if(opnd_is_base_disp(source1)){
+		printf("base+disp opnd \n");
+		reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
+		printf("register used is %s\n", get_register_name(r));
+		int disp = opnd_get_disp(source1);
+		printf("displacement in src is %d\n", disp);
+		opnd_t m = OPND_CREATE_MEMPTR(r, disp);
+		printf("uint %llu\n", m);
+	}
+	printf("num of regs is %d\n", opnd_num_regs_used(source1)); 
+	if(opnd_is_memory_reference(instr_get_dst(instr,0)))
+	    	printf("dest opnd is memory and num of regs is %d\n", opnd_num_regs_used(instr_get_dst(instr, 0)));
+ 
+	reg_id_t r1 = opnd_get_reg_used(instr_get_dst(instr, 0), 0);
+	printf("register in dest is %s\n", get_register_name(r1));
+	dr_mcontext_t mc = {sizeof(mc),DR_MC_ALL};
+	printf("value in dest reg  is %d\n", reg_get_value(r1,&mc));
+	reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
+	printf("register used is %s\n", get_register_name(r));
+	int disp = opnd_get_disp(source1);
+	printf("displacement in src is %d\n", disp);
+	printf("value in src reg  is %d\n", reg_get_value(r,&mc ));
+	opnd_t m = OPND_CREATE_MEMPTR(r, disp);
+	printf("uint %llu\n", m);
+	printf("instr before %d\n", instr);
+	printf("source before  %d\n", instr_get_src(instr,0));  
+	printf("dest before %d\n", instr_get_dst(instr,0));  
+//instr_t t = INSTR_CREATE_addss(drcontext, dest, source1);
+	dr_insert_clean_call(drcontext, bb, instr, (void*) callback1, true, 2, instr_get_src(instr, 0),OPND_CREATE_INTPTR(instr_get_app_pc(instr)));// OPND_CREATE_MEMPTR(r,disp)); 
 }
  
-	    	printf("source  %d\n", instr_get_src(instr,0));  
-		printf("dest  %d\n", instr_get_dst(instr,0));  
         div_count++; 
-	//dr_insert_clean_call(drcontext, bb, instr, (void*) callback, false, 2, instr, opcode); 
-//	dr_insert_clean_call(drcontext, bb, instr, (void*) callback1, false, 2, OPND_CREATE_INTPTR(instr_get_app_pc(instr)), instr); 
 	//  dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
            //                      false /*no fp save*/, 2,
             //                     OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
