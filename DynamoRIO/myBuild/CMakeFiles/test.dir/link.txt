@@ -1,1 +1,0 @@
-/usr/bin/gcc  -fPIC     -DX86_64 -DLINUX -fno-stack-protector  -fPIC -shared -lgcc -Xlinker -T -Xlinker "/homes/za1610/DynamoRIO-Linux-3.2.0-3/myBuild/ldscript"   -shared -Wl,-soname,libtest.so -o bin/libtest.so CMakeFiles/test.dir/test.c.o /homes/za1610/DynamoRIO-Linux-3.2.0-3/lib64/release/libdynamorio.so.3.2 
