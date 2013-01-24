@@ -1,43 +1,31 @@
 	.file	"print.c"
-	.section	.rodata
-.LC3:
-	.string	"HIIII"
+	.intel_syntax noprefix
 	.text
-.globl main
+	.globl	main
 	.type	main, @function
 main:
 .LFB0:
 	.cfi_startproc
-	pushq	%rbp
+	push	rbp
 	.cfi_def_cfa_offset 16
-	movq	%rsp, %rbp
 	.cfi_offset 6, -16
+	mov	rbp, rsp
 	.cfi_def_cfa_register 6
-	subq	$32, %rsp
-	movabsq	$-8301034833169297408, %rax
-	movl	$16383, %edx
-	movq	%rax, -16(%rbp)
-	movl	%edx, -8(%rbp)
-	movabsq	$-7378697629483821056, %rax
-	movl	$16384, %edx
-	movq	%rax, -32(%rbp)
-	movl	%edx, -24(%rbp)
-	fldt	-16(%rbp)
-	fldt	-32(%rbp)
-	fsubrp	%st, %st(1)
-	fldt	.LC2(%rip)
-	fxch	%st(1)
-	fucomip	%st(1), %st
-	fstp	%st(0)
-	jp	.L6
-	je	.L2
-.L6:
-.L5:
-	movl	$.LC3, %edi
-	call	puts
-.L2:
-	movl	$0, %eax
-	leave
+	movabs	rax, -8301034833169297408
+	mov	edx, 16383
+	mov	QWORD PTR [rbp-48], rax
+	mov	DWORD PTR [rbp-40], edx
+	movabs	rax, -7378697629483821056
+	mov	edx, 16384
+	mov	QWORD PTR [rbp-32], rax
+	mov	DWORD PTR [rbp-24], edx
+	fld	TBYTE PTR [rbp-48]
+	fld	TBYTE PTR .LC2[rip]
+	faddp	st(1), st
+	fstp	TBYTE PTR [rbp-16]
+	mov	eax, 0
+	pop	rbp
+	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
 .LFE0:
@@ -45,9 +33,9 @@ main:
 	.section	.rodata
 	.align 16
 .LC2:
+	.long	3951370240
+	.long	2501818449
+	.long	16384
 	.long	0
-	.long	3983582208
-	.long	16382
-	.long	0
-	.ident	"GCC: (Ubuntu 4.4.3-4ubuntu5) 4.4.3"
+	.ident	"GCC: (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3"
 	.section	.note.GNU-stack,"",@progbits

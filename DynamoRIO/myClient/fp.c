@@ -44,15 +44,17 @@ static dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
                                 bool for_trace, bool translating);
 static void exit_event(void);
 
+file_t logF;
 static int fp_count = 0;
 static void *count_mutex; /* for multithread support */
-
+static client_id_t client_id;
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     dr_register_exit_event(exit_event);
     dr_register_bb_event(bb_event);
     count_mutex = dr_mutex_create();
+    client_id = id;
 }
 
 static void
@@ -88,54 +90,142 @@ callback(app_pc addr, uint divisor)
 
     dr_mutex_unlock(count_mutex);
 }*/
+
+void
+writeLog(void* drcontext){
+	char logname[MAXIMUM_PATH];
+	char *dirsep;
+    	int len;
+	len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
+                      "%s", dr_get_client_path(client_id));
+	DR_ASSERT(len > 0);
+	for (dirsep = logname + len; *dirsep != '/'; dirsep--)
+        DR_ASSERT(dirsep > logname);
+    	len = dr_snprintf(dirsep + 1,
+                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
+                      "floatingpoint.%d.log", dr_get_thread_id(drcontext));
+    	DR_ASSERT(len > 0);
+    	NULL_TERMINATE(logname);
+    	logF = dr_open_file(logname, 
+                             DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    	DR_ASSERT(logF != INVALID_FILE);
+    	dr_log(drcontext, LOG_ALL, 1, 
+           "floating point: log for thread %d is fp.%03d\n",
+           dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
+	#ifdef SHOW_RESULTS
+    	if (dr_is_notify_on()) {
+        	dr_fprintf(STDERR, "<floating point instruction operands for thread %d in %s>\n",
+                   dr_get_thread_id(drcontext), logname);
+    	}
+	#endif	
+
+
+}
+
 static void 
-regreg(reg_id_t reg1, reg_id_t reg2, app_pc instr){
-	printf("in REGREG reg1 %s\n", get_register_name(reg1));
-	printf("in REGREG reg2 %s\n", get_register_name(reg2));
+getRegReg(reg_id_t r1, reg_id_t r2, uint opcode){
+	
+	char * r1Name = get_register_name(r1);
+	char * r2Name = get_register_name(r2);
+	int s1        = atoi(r1Name + 3 * sizeof(char));
+	int s2        = atoi(r2Name + 3 * sizeof(char));
+
+	dr_mcontext_t mcontext;
+   	memset(&mcontext, 0, sizeof(dr_mcontext_t));
+   	mcontext.flags = DR_MC_MULTIMEDIA;
+   	mcontext.size = sizeof(dr_mcontext_t);
+   	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+	int r, s;
+	float op1, op2;
+	if(opcode == OP_addss){
+		for(r=0; r<16; ++r)
+			for(s=0; s<4; ++s)
+		     		printf("reg %i.%i: %f\n", r, s, 
+					*((float*) &mcontext.ymm[r].u32[s]));
+		op1 = *((float*) &mcontext.ymm[s1].u32[0]);
+		op2 = *((float*) &mcontext.ymm[s2].u32[0]);
+	}
+	else{
+		for(r=0; r<16; ++r)
+    			for(s=0; s<2; ++s)
+	     			printf("reg %i.%i: %f\n", r, s, 
+					*((double*) &mcontext.ymm[r].u64[s]));
+		op1 = *((double*) &mcontext.ymm[s1].u64[0]);
+		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
+	}
+       	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 }
 
 static void
-callback(){
-  int b;
-  int r;
-  int s;
+fpRegs(){
+  	dr_mcontext_t mcontext;
+   	memset(&mcontext, 0, sizeof(dr_mcontext_t));
+   	mcontext.flags = DR_MC_ALL;
+   	mcontext.size = sizeof(dr_mcontext_t);
+   	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+//	printf("displacement is %d\n", displacement);
+   	printf("RBP contents: %f\n", *(float*)(mcontext.rbp - 48));
+//   	op2 = *(float*)(mcontext.rbp -32);
+	
 
-   dr_mcontext_t mcontext;
-   memset(&mcontext, 0, sizeof(dr_mcontext_t));
-   mcontext.flags = DR_MC_MULTIMEDIA;
-   mcontext.size = sizeof(dr_mcontext_t);
-   bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-//   for(r=0; r<16; ++r)
-//     for(s=0; s<4; ++s)
-//     printf("reg %i.%i: %f\n", r, s, *((float*) &mcontext.ymm[r].u32[s]));
-
-   for(r=0; r<16; ++r)
-     for(s=0; s<2; ++s)
-     printf("reg %i.%i: %f\n", r, s, *((double*) &mcontext.ymm[r].u64[s]));
-	//printf("IN CALLBACK OP %f\n", op2);
-//	reg_id_t r = opnd_get_reg(reg); 
-//	printf("in callback reg %s\n", get_register_name(reg));
 }
 
 static void
-regValue(opnd_t reg){
-	reg_id_t r;// = opnd_get_reg(reg);
+callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode){
+	int r, s;
+   	float op1, op2;
+   	char * destRegName = get_register_name(destReg);
+   	int regId = atoi(destRegName + 3 * sizeof(char));
+
+
+   	dr_mcontext_t mcontext;
+   	memset(&mcontext, 0, sizeof(dr_mcontext_t));
+   	mcontext.flags = DR_MC_ALL;
+   	mcontext.size = sizeof(dr_mcontext_t);
+   	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+	printf("displacement is %d\n", displacement);
+   	printf("RBP contents: %f\n", *(float*)(mcontext.rbp + displacement));
+   	op2 = *(float*)(mcontext.rbp + displacement);
+	if(opcode == OP_addss){
+		for(r=0; r<16; ++r)
+			for(s=0; s<4; ++s)
+		     		printf("reg %i.%i: %f\n", r, s, 
+					*((float*) &mcontext.ymm[r].u32[s]));
+		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
+	}
+	else{
+		for(r=0; r<16; ++r)
+    			for(s=0; s<2; ++s)
+	     			printf("reg %i.%i: %f\n", r, s, 
+					*((double*) &mcontext.ymm[r].u64[s]));
+		op1 = *((double*) &mcontext.ymm[regId].u64[0]);
+	}
+
+   	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 }
+
+
 
 static dr_emit_flags_t
 bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
-//printf("Begin\n");
     instr_t *instr, *next_instr;
     int opcode;
+
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
-	if(instr_is_floating(instr)){
-	    	printf("Floating point instruction \n");  
+//	if(instr_is_floating(instr)){
+//	    	printf("Floating point instruction \n");  
+//	}
+
+	if(opcode == OP_faddp){
+		
+			dr_insert_clean_call(drcontext, bb, instr, 
+				(void*) fpRegs, true, 0); 
 	}
 
-	if (opcode == OP_fadd || opcode == OP_addss || opcode == OP_addsd) { 
+	if (opcode == OP_addss || opcode == OP_addsd) { 
 		printf("opcode is   %d\n", opcode);
     		printf("number of sources  %d\n", instr_num_srcs(instr));  
     		printf("number of dests  %d\n", instr_num_dsts(instr));
@@ -143,53 +233,38 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
 		if(opnd_is_memory_reference(source1)){
-			if(opnd_is_reg(source2))
-				printf("2 is reg\n");
-			reg_id_t rr = opnd_get_reg(source2);
-			printf("reg used %s\n", get_register_name(rr));
+/*
+	opnd_t   ref;
+    	reg_id_t reg1 = DR_REG_XBX; 
+    	reg_id_t reg2 = DR_REG_XCX;
+	dr_save_reg(drcontext, bb, instr, reg1, SPILL_SLOT_2);
+	dr_save_reg(drcontext, bb, instr, reg2, SPILL_SLOT_3);
+	ref = instr_get_src(instr, 0);
+	drutil_insert_get_mem_addr(drcontext, bb, instr, ref, reg1, reg2);
+*/
+	    		writeLog(drcontext);
+			reg_id_t rd = opnd_get_reg(source2);
+			reg_id_t rs = opnd_get_reg_used(source1, 0);
 			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) callback, true, 0); 
-			//	source1,source2,  
-				//opnd_create_reg(rr),
-			//	OPND_CREATE_INTPTR(instr_get_app_pc(instr))); 
-
+				(void*) callback, true, 4, 
+				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
+				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode));
 		}
 		if(opnd_is_reg(source1) && opnd_is_reg(source2)){
-			printf("opnd is register\n");
 			reg_id_t reg1 = opnd_get_reg(source1);
 			reg_id_t reg2 = opnd_get_reg(source2);
 			printf("register1 is %s\n", get_register_name(reg1));
 			printf("register2 is %s\n", get_register_name(reg2));
 
-//   for(r=0; r<16; ++r)
- //    for(s=0; s<4; ++s)
-  //   printf("reg %i.%i: %f\n", r, s, *((float*) &drcontext.ymm[r].u32[s]));
-/*			dr_insert_clean_call(drcontext, bb, instr,
-			(void*) callback, false, 2, 
-			source1, OPND_CREATE_INTPTR(instr_get_app_pc(instr))
-//			(void*) regValue, false, 1, 
-//			opnd_create_reg(reg1)
-			);*/
-			dr_insert_clean_call(drcontext,bb,instr, (void*)callback, 
-				true, 0, 
-			OPND_CREATE_INT32(reg1), OPND_CREATE_INTPTR(reg2), 
-			OPND_CREATE_INT32(instr_get_app_pc(instr))); 
+			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
+				true, 3, 
+				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
+				,OPND_CREATE_INTPTR(opcode) 
+			); 
 		
+			writeLog(drcontext);
 		}
-/*
-	reg_id_t r1 = opnd_get_reg_used(instr_get_dst(instr, 0), 0);
-	printf("register in dest is %s\n", get_register_name(r1));
-	dr_mcontext_t mc = {sizeof(mc),DR_MC_ALL};
-	printf("value in dest reg  is %d\n", reg_get_value(r1,&mc));
-	printf("value in src reg  is %d\n", reg_get_value(r,&mc ));
-	opnd_t m = OPND_CREATE_MEMPTR(r, disp);
-	printf("uint %llu\n", m);
-	printf("instr before %d\n", instr);
-	printf("source before  %d\n", instr_get_src(instr,0));  
-	printf("dest before %d\n", instr_get_dst(instr,0));  
-*/
-
-        fp_count++; 
+	        fp_count++; 
 	//  dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
            //                      false /*no fp save*/, 2,
             //                     OPND_CREATE_INTPTR(instr_get_app_pc(instr)),

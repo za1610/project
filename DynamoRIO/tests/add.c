@@ -1,18 +1,18 @@
 #include <stdio.h>
 
-   float Add1(float i){ return i+1;}
-   void Add1Again(float i, float *j){ *j = i + *j;  }
-
+   float Add1(float i, float j){ return i+j;}
+ /*  void Add1Again(float i, float *j){ *j = i + *j;  }
+*/
    float p = 10.123443;
    float y = 0.1231;
    float z = 0;
 
    void main()
    {
-       y = Add1(p);
+       z = Add1(p, y);
        printf("p = %f\t\ty = %f\n",p,y);
-       Add1Again(p, &z);
-       printf("p = %f\t\tz = %f\n",p,z);
+     //  Add1Again(p, &z);
+     //  printf("p = %f\t\tz = %f\n",p,z);
    }
 /*
 int main(){

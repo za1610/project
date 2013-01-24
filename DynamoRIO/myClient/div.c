@@ -58,7 +58,6 @@ dr_init(client_id_t id)
     dr_register_exit_event(exit_event);
     dr_register_bb_event(bb_event);
     count_mutex = dr_mutex_create();
-	printf("Client path is  %s !!!\n", dr_get_client_path(id));
 }
 
 static void
@@ -79,46 +78,21 @@ exit_event(void)
 
     dr_mutex_destroy(count_mutex);
 }
-/*
+
 static void
 callback(app_pc addr, uint divisor)
 {
-  //   * instead of a lock could use atomic operations to
-  //   * increment the counters 
+    /* instead of a lock could use atomic operations to
+     * increment the counters */
     dr_mutex_lock(count_mutex);
 
     div_count++;
-
-  //   check for power of 2 
+printf("in callback %d\n", divisor);
+    /* check for power of 2 */
     if ((divisor & (divisor - 1)) != 0)
         div_p2_count++;
 
     dr_mutex_unlock(count_mutex);
-}*/
-static void callback(instr_t* instr, int opcode){
-printf("IN callback \n");
-        if (opcode == OP_addss) { 
-		printf("opcode is addss  %d\n", opcode);
-	    	printf("number of sources  %d\n", instr_num_srcs(instr));  
-	    	printf("number of dests  %d\n", instr_num_dsts(instr));
-if(instr_reads_memory(instr)){
-	    	printf("some of the  sources is memory \n");  
-} 
-if(opnd_is_memory_reference(instr_get_src(instr,0))){
-	    	printf("source is opnd  memory and num of regs is %d\n", opnd_num_regs_used(instr_get_src(instr, 0))); 
-reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
-printf("register used is %s\n", get_register_name(r));
-}
- 
-	    	printf("source  %d\n", instr_get_src(instr,0));  
-		printf("dest  %d\n", instr_get_dst(instr,0));  
-}
-}
-
-static void
-callback1(app_pc addr, instr_t* instr){
-int op = 5;
-printf("in callback %d\n", op);
 }
 
 static dr_emit_flags_t
@@ -126,51 +100,17 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr, *next_instr;
     int opcode;
-printf("here\n");
+
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
-	//if(opcode >= 300)
-//		printf("opcode is  %d\n", opcode);
-        /* if find div, insert a clean call to our instrumentation routine */
-if(instr_is_floating(instr)){
-	    	printf("Floating point instruction \n");  
-}
-if(instr_is_mmx(instr)){
-	    	printf("MMX instruction \n");  
-}
-        if (opcode == OP_addss) { 
-		printf("opcode is addss  %d\n", opcode);
-	    	printf("number of sources  %d\n", instr_num_srcs(instr));  
-	    	printf("number of dests  %d\n", instr_num_dsts(instr));
-if(instr_reads_memory(instr)){
-	    	printf("some of the  sources is memory \n");  
-} 
-if(opnd_is_memory_reference(instr_get_src(instr,0))){
-	    	printf("source is opnd  memory and num of regs is %d\n", opnd_num_regs_used(instr_get_src(instr, 0))); 
-if(opnd_is_memory_reference(instr_get_dst(instr,0)))
-	    	printf("dest is opnd  memory and num of regs is %d\n", opnd_num_regs_used(instr_get_dst(instr, 0)));
- 
-reg_id_t r1 = opnd_get_reg_used(instr_get_dst(instr, 0), 0);
-printf("register in dest is %s\n", get_register_name(r1));
-dr_mcontext_t mc = {sizeof(mc),DR_MC_ALL};
-printf("value in dest reg  is %d\n", reg_get_value(r1,&mc ));
-reg_id_t r = opnd_get_reg_used(instr_get_src(instr, 0), 0);
-printf("register used is %s\n", get_register_name(r));
 
-printf("displacement in src is %d\n", opnd_get_disp(instr_get_src(instr,0)));
-printf("value in src reg  is %d\n", reg_get_value(r,&mc ));
-}
- 
-	    	printf("source  %d\n", instr_get_src(instr,0));  
-		printf("dest  %d\n", instr_get_dst(instr,0));  
-        div_count++; 
-	//dr_insert_clean_call(drcontext, bb, instr, (void*) callback, false, 2, instr, opcode); 
-//	dr_insert_clean_call(drcontext, bb, instr, (void*) callback1, false, 2, OPND_CREATE_INTPTR(instr_get_app_pc(instr)), instr); 
-	//  dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
-           //                      false /*no fp save*/, 2,
-            //                     OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
-             //                    instr_get_src(instr, 0) /*divisor is 1st src*/);
+        /* if find div, insert a clean call to our instrumentation routine */
+        if (opcode == OP_idiv) {   
+            dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
+                                 false /*no fp save*/, 2,
+                                 OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
+                                 instr_get_src(instr, 0) /*divisor is 1st src*/);
         }
     }
     return DR_EMIT_DEFAULT;
