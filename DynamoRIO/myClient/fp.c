@@ -219,16 +219,23 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 //	    	printf("Floating point instruction \n");  
 //	}
 
+//padded? addpd? addps? AVX? FPU instruction fadd??? 
+//rcpps?
+
+
 	if(opcode == OP_faddp){
 		
 			dr_insert_clean_call(drcontext, bb, instr, 
 				(void*) fpRegs, true, 0); 
 	}
 
-	if (opcode == OP_addss || opcode == OP_addsd) { 
+	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd
+	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd	
+	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss || opcode == OP_rsqrtsd) { 
 		printf("opcode is   %d\n", opcode);
     		printf("number of sources  %d\n", instr_num_srcs(instr));  
     		printf("number of dests  %d\n", instr_num_dsts(instr));
+		//assert(number of sources = 2);
 		opnd_t source1 = instr_get_src(instr,0);
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
@@ -250,7 +257,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
 				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode));
 		}
-		if(opnd_is_reg(source1) && opnd_is_reg(source2)){
+		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1);
 			reg_id_t reg2 = opnd_get_reg(source2);
 			printf("register1 is %s\n", get_register_name(reg1));
@@ -263,6 +270,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			); 
 		
 			writeLog(drcontext);
+		}
+		else{
+		//should not be the case, throw an exception
 		}
 	        fp_count++; 
 	//  dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
