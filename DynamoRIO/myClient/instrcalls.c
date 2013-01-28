@@ -99,7 +99,6 @@ event_exit(void)
 static void
 event_thread_init(void *drcontext)
 {
-/*
     file_t f;
     char logname[512];
     char *dirsep;
@@ -109,32 +108,31 @@ event_thread_init(void *drcontext)
      * the same directory as our library. We could also pass
      * in a path and retrieve with dr_get_options().
      */
-/*    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
+    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
                       "%s", dr_get_client_path(my_id));
     DR_ASSERT(len > 0);
     for (dirsep = logname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
         DR_ASSERT(dirsep > logname);
     len = dr_snprintf(dirsep + 1,
                       (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
-                      "test.%d.log", dr_get_thread_id(drcontext));
+                      "instrcalls.%d.log", dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     logname[sizeof(logname)/sizeof(logname[0])-1] = '\0';
     f = dr_open_file(logname, DR_FILE_WRITE_OVERWRITE);
     DR_ASSERT(f != INVALID_FILE);
 
     /* store it in the slot provided in the drcontext */
-  /*  dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
- //   dr_log(drcontext, LOG_ALL, 1, 
- //          "instrcalls: log for thread %d is div.%03d\n",
- //          dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
-*/
+    dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
+    dr_log(drcontext, LOG_ALL, 1, 
+           "instrcalls: log for thread %d is instrcalls.%03d\n",
+           dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
-  //  file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(drcontext);
-  //  dr_close_file(f);
+    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(drcontext);
+    dr_close_file(f);
 }
 
 #ifdef SHOW_SYMBOLS
@@ -148,7 +146,7 @@ print_address(file_t f, app_pc addr, const char *prefix)
     module_data_t *data;
     data = dr_lookup_module(addr);
     if (data == NULL) {
-        printf("%s "PFX" ? ??:0\n", prefix, addr);
+        dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);
         return;
     }
     sym = (drsym_info_t *) sbuf;
@@ -160,16 +158,16 @@ print_address(file_t f, app_pc addr, const char *prefix)
         const char *modname = dr_module_preferred_name(data);
         if (modname == NULL)
             modname = "<noname>";
-        printf("%s "PFX" %s!%s+"PIFX, prefix, addr,
+        dr_fprintf(f, "%s "PFX" %s!%s+"PIFX, prefix, addr,
                    modname, sym->name, addr - data->start - sym->start_offs);
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-            printf(" ??:0\n");
+            dr_fprintf(f, " ??:0\n");
         } else {
-            printf(" %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
+            dr_fprintf(f, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
                        sym->file, sym->line, sym->line_offs);
         }
     } else
-        printf("%s "PFX" ? ??:0\n", prefix, addr);
+        dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);
     dr_free_module_data(data);
 }
 #endif
@@ -183,9 +181,9 @@ at_call(app_pc instr_addr, app_pc target_addr)
 #ifdef SHOW_SYMBOLS
     print_address(f, instr_addr, "CALL @ ");
     print_address(f, target_addr, "\t to ");
-    printf("\tTOS is "PFX"\n", mc.xsp);
+    dr_fprintf(f, "\tTOS is "PFX"\n", mc.xsp);
 #else
-    printf("CALL @ "PFX" to "PFX", TOS is "PFX"\n",
+    dr_fprintf(f, "CALL @ "PFX" to "PFX", TOS is "PFX"\n",
                instr_addr, target_addr, mc.xsp);
 #endif
 }
@@ -198,7 +196,7 @@ at_call_ind(app_pc instr_addr, app_pc target_addr)
     print_address(f, instr_addr, "CALL INDIRECT @ ");
     print_address(f, target_addr, "\t to ");
 #else
-    printf("CALL INDIRECT @ "PFX" to "PFX"\n", instr_addr, target_addr);
+    dr_fprintf(f, "CALL INDIRECT @ "PFX" to "PFX"\n", instr_addr, target_addr);
 #endif
 }
 
@@ -210,7 +208,7 @@ at_return(app_pc instr_addr, app_pc target_addr)
     print_address(f, instr_addr, "RETURN @ ");
     print_address(f, target_addr, "\t to ");
 #else
-    printf("RETURN @ "PFX" to "PFX"\n", instr_addr, target_addr);
+    dr_fprintf(f, "RETURN @ "PFX" to "PFX"\n", instr_addr, target_addr);
 #endif
 }
 

@@ -32,6 +32,11 @@
 
 #include "dr_api.h"
 
+#include "drsyms.h"
+
+# define MAX_SYM_RESULT 256
+
+
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
@@ -122,8 +127,58 @@ writeLog(void* drcontext){
 
 }
 
+static void
+print_address(app_pc addr)
+{
+   const char* prefix = "PRINT ADDRESS: ";
+ 
+        dr_fprintf(logF, "%s \n", prefix);
+  // file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    drsym_error_t symres;
+    drsym_info_t *sym;
+    char sbuf[sizeof(*sym) + MAX_SYM_RESULT];
+    module_data_t *data;
+    data = dr_lookup_module(addr);
+    if (data == NULL) {
+        dr_fprintf(logF, "%s "PFX" ? ??:0\n", prefix, addr);
+        return;
+    }
+
+    sym = (drsym_info_t *) sbuf;
+    sym->struct_size = sizeof(*sym);
+    sym->name_size = MAX_SYM_RESULT;
+    
+        dr_fprintf(logF, "2 %s %s "PFX"  start "PFX"\n", prefix, data->full_path, addr,addr - data->start);
+    symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
+                                  DRSYM_DEFAULT_FLAGS);
+
+
+        dr_fprintf(logF, "3 %s \n", prefix);
+
+    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+        const char *modname = dr_module_preferred_name(data);
+
+        dr_fprintf(logF, " 4 %s \n", prefix);
+        if (modname == NULL)
+            modname = "<noname>";
+        dr_fprintf(logF, "%s "PFX" %s!%s+"PIFX, prefix, addr,
+                   modname, sym->name, addr - data->start - sym->start_offs);
+        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+            dr_fprintf(logF, " ??:0\n");
+        } else {
+            dr_fprintf(logF, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
+                       sym->file, sym->line, sym->line_offs);
+        }
+    } else
+        dr_fprintf(logF, "%s "PFX" ? ??:0\n", prefix, addr);
+    dr_free_module_data(data);
+}
+
+
+
+
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, uint opcode){
+getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr){
 	
 	char * r1Name = get_register_name(r1);
 	char * r2Name = get_register_name(r2);
@@ -154,6 +209,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, uint opcode){
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
 	}
        	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+	print_address(addr);
 }
 
 static void
@@ -171,7 +227,7 @@ fpRegs(){
 }
 
 static void
-callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode){
+callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc addr){
 	int r, s;
    	float op1, op2;
    	char * destRegName = get_register_name(destReg);
@@ -202,6 +258,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode){
 	}
 
    	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+	print_address(addr);
 }
 
 
@@ -221,17 +278,23 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
 //padded? addpd? addps? AVX? FPU instruction fadd??? 
 //rcpps?
+/*	if(opcode == OP_ret){
 
-
+	    		writeLog(drcontext);
+		printf("In return \n");
+		dr_insert_clean_call(drcontext, bb, instr, 
+				(void*) print_address, true, 1, OPND_CREATE_INTPTR(instr_get_app_pc(instr))); 
+	}
+*/
 	if(opcode == OP_faddp){
 		
 			dr_insert_clean_call(drcontext, bb, instr, 
 				(void*) fpRegs, true, 0); 
 	}
 
-	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd
-	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd	
-	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss || opcode == OP_rsqrtsd) { 
+	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
+	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
+	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss) { 
 		printf("opcode is   %d\n", opcode);
     		printf("number of sources  %d\n", instr_num_srcs(instr));  
     		printf("number of dests  %d\n", instr_num_dsts(instr));
@@ -253,9 +316,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
 			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) callback, true, 4, 
+				(void*) callback, true, 5, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
-				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode));
+				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1);
@@ -264,9 +327,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			printf("register2 is %s\n", get_register_name(reg2));
 
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
-				true, 3, 
+				true, 4, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
-				,OPND_CREATE_INTPTR(opcode) 
+				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)) 
 			); 
 		
 			writeLog(drcontext);
