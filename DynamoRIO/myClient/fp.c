@@ -180,10 +180,26 @@ data->start = 0x00007f79e0f9d000;
 }
 
 
+bool is_SIMD(int opcode){
+	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
+	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
+	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss);	
+
+}
+
+
+bool is_SIMD_single(int opcode){
+	return (opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || 
+		opcode == OP_divss || opcode == OP_sqrtss  || opcode == OP_rsqrtss);	
+
+}
+
+
+
 
 
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr, int single){
+getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	
 	char * r1Name = get_register_name(r1);
 	char * r2Name = get_register_name(r2);
@@ -197,7 +213,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr, int single){
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	int r, s;
 	float op1, op2;
-	if(opcode == OP_addss){
+	if(is_SIMD_single(opcode)){
 		for(r=0; r<16; ++r)
 			for(s=0; s<4; ++s)
 		     		printf("reg %i.%i: %f\n", r, s, 
@@ -215,8 +231,6 @@ getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr, int single){
 	}
        	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 	//print_address(addr);
-
-
 }
 
 static void
@@ -236,13 +250,11 @@ fpRegs(){
 
 
 static void
-callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc addr, int single){
+callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc addr){
 //need to change floats to double in case of sd
 	int r, s;
-   	float op1, op2;
    	char * destRegName = get_register_name(destReg);
    	int regId = atoi(destRegName + 3 * sizeof(char));
-
 
    	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
@@ -250,43 +262,35 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc a
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	printf("displacement is %d\n", displacement);
+
+	if(is_SIMD_single(opcode)){
+   		float op1, op2;
 // work for double cases
 //   	printf("RBP contents: %lf\n", *(double*)(mcontext.rbp + displacement));
-   	printf("RBP contents: %f\n", *(float*)(mcontext.rbp + displacement));
-   	op2 = *(float*)(mcontext.rbp + displacement);
-	if(opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || opcode == OP_divss || opcode == OP_sqrtss || opcode == OP_rsqrtss){
+   		printf("RBP contents: %f\n", *(float*)(mcontext.rbp + displacement));
+   		op2 = *(float*)(mcontext.rbp + displacement);
 		for(r=0; r<16; ++r)
 			for(s=0; s<4; ++s)
 		     		printf("reg %i.%i: %f\n", r, s, 
 					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
+   		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 	}
 	else{
+		double op1, op2;
+   		printf("RBP contents: %lf\n", *(double*)(mcontext.rbp + displacement));
+   		op2 = *(double*)(mcontext.rbp + displacement);
 		for(r=0; r<16; ++r)
     			for(s=0; s<2; ++s)
-	     			printf("reg %i.%i: %f\n", r, s, 
+	     			printf("reg %i.%i: %lf\n", r, s, 
 					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[regId].u64[0]);
+   		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
 	}
 
-   	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 	//print_address(addr);
 }
 
-
-bool is_SIMD(int opcode){
-
-	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
-	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
-	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss);	
-
-}
-
-bool is_SIMD_single(int opcode){
-	return (opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || 
-		opcode == OP_divss || opcode == OP_sqrtss  || opcode == OP_rsqrtss);	
-
-}
 
 
 
@@ -348,9 +352,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
 			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) callback, true, 6, 
+				(void*) callback, true, 5, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
-				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)), OPND_CREATE_INTPTR(is_single));
+				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1);
@@ -363,10 +367,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			dr_print_opnd(drcontext, logF, source1, "OPND: ");
 
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
-				true, 5, 
+				true, 4, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
 				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr))
-				, OPND_CREATE_INTPTR(is_single) 
 			); 
 		
 		}
