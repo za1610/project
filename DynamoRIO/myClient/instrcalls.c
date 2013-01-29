@@ -149,6 +149,7 @@ print_address(file_t f, app_pc addr, const char *prefix)
         dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);
         return;
     }
+		dr_fprintf(f, "%s %s "PFX" "PFX" ? ??:0\n", "mine ", data->names.file_name,addr, data->start);
     sym = (drsym_info_t *) sbuf;
     sym->struct_size = sizeof(*sym);
     sym->name_size = MAX_SYM_RESULT;
@@ -158,7 +159,8 @@ print_address(file_t f, app_pc addr, const char *prefix)
         const char *modname = dr_module_preferred_name(data);
         if (modname == NULL)
             modname = "<noname>";
-        dr_fprintf(f, "%s "PFX" %s!%s+"PIFX, prefix, addr,
+		//		dr_fprintf(f, "%s %s  %c!!!!!\n", "mine ", sym->file,sym->name);
+        dr_fprintf(f, "here %s "PFX" %s!%s+"PIFX, prefix, addr,
                    modname, sym->name, addr - data->start - sym->start_offs);
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
             dr_fprintf(f, " ??:0\n");

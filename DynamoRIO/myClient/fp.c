@@ -32,10 +32,10 @@
 
 #include "dr_api.h"
 
-#include "drsyms.h"
+#include "../ext/include/drsyms.h"
 
 # define MAX_SYM_RESULT 256
-
+//#define SHOW_SYMBOLS
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -143,15 +143,18 @@ print_address(app_pc addr)
         dr_fprintf(logF, "%s "PFX" ? ??:0\n", prefix, addr);
         return;
     }
-
+dr_fprintf(logF, "module name %s\n", data->names.file_name);
     sym = (drsym_info_t *) sbuf;
     sym->struct_size = sizeof(*sym);
     sym->name_size = MAX_SYM_RESULT;
     
+
+addr = 0x00007f79e0fb58d0;
+data->start = 0x00007f79e0f9d000;
         dr_fprintf(logF, "2 %s %s "PFX"  start "PFX"\n", prefix, data->full_path, addr,addr - data->start);
     symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
                                   DRSYM_DEFAULT_FLAGS);
-
+/*
 
         dr_fprintf(logF, "3 %s \n", prefix);
 
@@ -171,14 +174,16 @@ print_address(app_pc addr)
         }
     } else
         dr_fprintf(logF, "%s "PFX" ? ??:0\n", prefix, addr);
-    dr_free_module_data(data);
+*/  
+
+  dr_free_module_data(data);
 }
 
 
 
 
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr){
+getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr, int single){
 	
 	char * r1Name = get_register_name(r1);
 	char * r2Name = get_register_name(r2);
@@ -209,7 +214,9 @@ getRegReg(reg_id_t r1, reg_id_t r2, uint opcode, app_pc addr){
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
 	}
        	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
-	print_address(addr);
+	//print_address(addr);
+
+
 }
 
 static void
@@ -226,8 +233,11 @@ fpRegs(){
 
 }
 
+
+
 static void
-callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc addr){
+callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc addr, int single){
+//need to change floats to double in case of sd
 	int r, s;
    	float op1, op2;
    	char * destRegName = get_register_name(destReg);
@@ -240,9 +250,11 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc a
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	printf("displacement is %d\n", displacement);
+// work for double cases
+//   	printf("RBP contents: %lf\n", *(double*)(mcontext.rbp + displacement));
    	printf("RBP contents: %f\n", *(float*)(mcontext.rbp + displacement));
    	op2 = *(float*)(mcontext.rbp + displacement);
-	if(opcode == OP_addss){
+	if(opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || opcode == OP_divss || opcode == OP_sqrtss || opcode == OP_rsqrtss){
 		for(r=0; r<16; ++r)
 			for(s=0; s<4; ++s)
 		     		printf("reg %i.%i: %f\n", r, s, 
@@ -258,7 +270,22 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, uint opcode, app_pc a
 	}
 
    	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
-	print_address(addr);
+	//print_address(addr);
+}
+
+
+bool is_SIMD(int opcode){
+
+	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
+	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
+	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss);	
+
+}
+
+bool is_SIMD_single(int opcode){
+	return (opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || 
+		opcode == OP_divss || opcode == OP_sqrtss  || opcode == OP_rsqrtss);	
+
 }
 
 
@@ -291,10 +318,13 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			dr_insert_clean_call(drcontext, bb, instr, 
 				(void*) fpRegs, true, 0); 
 	}
-
-	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
-	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
-	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss) { 
+	if(is_SIMD(opcode)){
+		int is_single = 0;
+		if(is_SIMD_single(opcode))
+			is_single = 1;
+//	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
+//	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
+//	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss) { 
 		printf("opcode is   %d\n", opcode);
     		printf("number of sources  %d\n", instr_num_srcs(instr));  
     		printf("number of dests  %d\n", instr_num_dsts(instr));
@@ -313,26 +343,32 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 	drutil_insert_get_mem_addr(drcontext, bb, instr, ref, reg1, reg2);
 */
 	    		writeLog(drcontext);
+			dr_print_instr(drcontext, logF, instr, "INSTR: ");
+			dr_print_opnd(drcontext, logF, source1, "OPND: ");
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
 			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) callback, true, 5, 
+				(void*) callback, true, 6, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
-				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
+				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)), OPND_CREATE_INTPTR(is_single));
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1);
 			reg_id_t reg2 = opnd_get_reg(source2);
 			printf("register1 is %s\n", get_register_name(reg1));
 			printf("register2 is %s\n", get_register_name(reg2));
+			writeLog(drcontext);
+			
+			dr_print_instr(drcontext, logF, instr, "INSTR: ");
+			dr_print_opnd(drcontext, logF, source1, "OPND: ");
 
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
-				true, 4, 
+				true, 5, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
-				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)) 
+				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr))
+				, OPND_CREATE_INTPTR(is_single) 
 			); 
 		
-			writeLog(drcontext);
 		}
 		else{
 		//should not be the case, throw an exception
