@@ -35,7 +35,7 @@
 #include "../ext/include/drsyms.h"
 
 # define MAX_SYM_RESULT 256
-//#define SHOW_SYMBOLS
+#define SHOW_SYMBOLS
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -60,6 +60,13 @@ dr_init(client_id_t id)
     dr_register_bb_event(bb_event);
     count_mutex = dr_mutex_create();
     client_id = id;
+#ifdef SHOW_SYMBOLS
+    if (drsym_init(0) != DRSYM_SUCCESS) {
+        dr_log(NULL, LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
+    }
+#endif
+
+
 }
 
 static void
@@ -78,6 +85,13 @@ exit_event(void)
 #endif /* SHOW_RESULTS */
 
     dr_mutex_destroy(count_mutex);
+
+#ifdef SHOW_SYMBOLS
+    if (drsym_exit() != DRSYM_SUCCESS) {
+        dr_log(NULL, LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
+    }
+#endif
+
 }
 /*
 static void
@@ -130,9 +144,7 @@ writeLog(void* drcontext){
 static void
 print_address(app_pc addr)
 {
-   const char* prefix = "PRINT ADDRESS: ";
- 
-        dr_fprintf(logF, "%s \n", prefix);
+    const char* prefix = "PRINT ADDRESS: ";
   // file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
     drsym_error_t symres;
     drsym_info_t *sym;
@@ -140,47 +152,39 @@ print_address(app_pc addr)
     module_data_t *data;
     data = dr_lookup_module(addr);
     if (data == NULL) {
-        dr_fprintf(logF, "%s "PFX" ? ??:0\n", prefix, addr);
+        dr_fprintf(logF, "%s data is null "PFX" \n", prefix, addr);
         return;
     }
-dr_fprintf(logF, "module name %s\n", data->names.file_name);
+//    dr_fprintf(logF, "module name %s\n", data->names.file_name);
     sym = (drsym_info_t *) sbuf;
     sym->struct_size = sizeof(*sym);
-    sym->name_size = MAX_SYM_RESULT;
-    
+    sym->name_size = MAX_SYM_RESULT;   
 
-addr = 0x00007f79e0fb58d0;
-data->start = 0x00007f79e0f9d000;
-        dr_fprintf(logF, "2 %s %s "PFX"  start "PFX"\n", prefix, data->full_path, addr,addr - data->start);
+//    dr_fprintf(logF, "2 %s %s "PFX"  start "PFX"\n", prefix, data->full_path, addr,addr - data->start);
+
     symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
-                                  DRSYM_DEFAULT_FLAGS);
-/*
-
-        dr_fprintf(logF, "3 %s \n", prefix);
+                           DRSYM_DEFAULT_FLAGS);
 
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         const char *modname = dr_module_preferred_name(data);
-
-        dr_fprintf(logF, " 4 %s \n", prefix);
         if (modname == NULL)
             modname = "<noname>";
-        dr_fprintf(logF, "%s "PFX" %s!%s+"PIFX, prefix, addr,
+        dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX" \n", prefix, addr,
                    modname, sym->name, addr - data->start - sym->start_offs);
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-            dr_fprintf(logF, " ??:0\n");
+            dr_fprintf(logF, "%s Line is not available\n", prefix);
         } else {
             dr_fprintf(logF, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
                        sym->file, sym->line, sym->line_offs);
         }
     } else
-        dr_fprintf(logF, "%s "PFX" ? ??:0\n", prefix, addr);
-*/  
-
-  dr_free_module_data(data);
+        dr_fprintf(logF, "%s some error "PFX" \n", prefix, addr);
+  
+    dr_free_module_data(data);
 }
 
 
-bool is_SIMD(int opcode){
+bool is_SIMD_arithm(int opcode){
 	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
 	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
 	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss);	
@@ -188,21 +192,18 @@ bool is_SIMD(int opcode){
 }
 
 
-bool is_SIMD_single(int opcode){
+bool is_single_precision_instr(int opcode){
 	return (opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || 
 		opcode == OP_divss || opcode == OP_sqrtss  || opcode == OP_rsqrtss);	
 
 }
 
 
-
-
-
 static void 
 getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	
-	char * r1Name = get_register_name(r1);
-	char * r2Name = get_register_name(r2);
+	const char * r1Name = get_register_name(r1);
+	const char * r2Name = get_register_name(r2);
 	int s1        = atoi(r1Name + 3 * sizeof(char));
 	int s2        = atoi(r2Name + 3 * sizeof(char));
 
@@ -213,7 +214,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	int r, s;
 	float op1, op2;
-	if(is_SIMD_single(opcode)){
+	if(is_single_precision_instr(opcode)){
 		for(r=0; r<16; ++r)
 			for(s=0; s<4; ++s)
 		     		printf("reg %i.%i: %f\n", r, s, 
@@ -230,9 +231,10 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
 	}
        	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
-	//print_address(addr);
+	print_address(addr);
 }
 
+/*
 static void
 fpRegs(){
   	dr_mcontext_t mcontext;
@@ -242,18 +244,15 @@ fpRegs(){
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 //	printf("displacement is %d\n", displacement);
    	printf("RBP contents: %f\n", *(float*)(mcontext.rbp - 48));
-//   	op2 = *(float*)(mcontext.rbp -32);
-	
-
+//   	op2 = *(float*)(mcontext.rbp -32);	
 }
-
+*/
 
 
 static void
 callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc addr){
-//need to change floats to double in case of sd
 	int r, s;
-   	char * destRegName = get_register_name(destReg);
+   	const char * destRegName = get_register_name(destReg);
    	int regId = atoi(destRegName + 3 * sizeof(char));
 
    	dr_mcontext_t mcontext;
@@ -263,12 +262,31 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	printf("displacement is %d\n", displacement);
 
-	if(is_SIMD_single(opcode)){
+	reg_t mem_reg;
+	if(reg == DR_REG_RAX)
+		mem_reg = mcontext.rax;
+	else if(reg == DR_REG_RBP)
+		mem_reg = mcontext.rbp;
+	else if(reg == DR_REG_RBX)
+		mem_reg = mcontext.rbx;
+	else if(reg == DR_REG_RCX)
+		mem_reg = mcontext.rcx;
+	else if(reg == DR_REG_RDI)
+		mem_reg = mcontext.rdi;
+	else if(reg == DR_REG_RDX)
+		mem_reg = mcontext.rdx;
+	else if(reg == DR_REG_RSI)
+		mem_reg = mcontext.rsi;
+	else if(reg == DR_REG_RSP)
+		mem_reg = mcontext.rsp;
+	else
+		mem_reg = NULL;
+//deal with a null case, rip enum doesn't exist
+
+	if(is_single_precision_instr(opcode)){
    		float op1, op2;
-// work for double cases
-//   	printf("RBP contents: %lf\n", *(double*)(mcontext.rbp + displacement));
-   		printf("RBP contents: %f\n", *(float*)(mcontext.rbp + displacement));
-   		op2 = *(float*)(mcontext.rbp + displacement);
+   		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
+   		op2 = *(float*)(mem_reg + displacement);
 		for(r=0; r<16; ++r)
 			for(s=0; s<4; ++s)
 		     		printf("reg %i.%i: %f\n", r, s, 
@@ -278,8 +296,8 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 	}
 	else{
 		double op1, op2;
-   		printf("RBP contents: %lf\n", *(double*)(mcontext.rbp + displacement));
-   		op2 = *(double*)(mcontext.rbp + displacement);
+   		printf("Mem reg contents: %lf\n", *(double*)(mem_reg + displacement));
+   		op2 = *(double*)(mem_reg + displacement);
 		for(r=0; r<16; ++r)
     			for(s=0; s<2; ++s)
 	     			printf("reg %i.%i: %lf\n", r, s, 
@@ -288,7 +306,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
    		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
 	}
 
-	//print_address(addr);
+	print_address(addr);
 }
 
 
@@ -299,7 +317,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr, *next_instr;
     int opcode;
-
+	writeLog(drcontext);
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
@@ -319,13 +337,11 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 */
 	if(opcode == OP_faddp){
 		
-			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) fpRegs, true, 0); 
+	//		dr_insert_clean_call(drcontext, bb, instr, 
+//			(void*) fpRegs, true, 0); 
 	}
-	if(is_SIMD(opcode)){
+	if(is_SIMD_arithm(opcode)){
 		int is_single = 0;
-		if(is_SIMD_single(opcode))
-			is_single = 1;
 //	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
 //	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
 //	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss) { 
@@ -346,9 +362,10 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 	ref = instr_get_src(instr, 0);
 	drutil_insert_get_mem_addr(drcontext, bb, instr, ref, reg1, reg2);
 */
-	    		writeLog(drcontext);
+//	    		writeLog(drcontext);
 			dr_print_instr(drcontext, logF, instr, "INSTR: ");
-			dr_print_opnd(drcontext, logF, source1, "OPND: ");
+			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
+			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
 			dr_insert_clean_call(drcontext, bb, instr, 
@@ -361,10 +378,11 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			reg_id_t reg2 = opnd_get_reg(source2);
 			printf("register1 is %s\n", get_register_name(reg1));
 			printf("register2 is %s\n", get_register_name(reg2));
-			writeLog(drcontext);
+//			writeLog(drcontext);
 			
 			dr_print_instr(drcontext, logF, instr, "INSTR: ");
-			dr_print_opnd(drcontext, logF, source1, "OPND: ");
+			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
+			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
 
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
 				true, 4, 
