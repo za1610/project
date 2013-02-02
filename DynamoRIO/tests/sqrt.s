@@ -20,48 +20,70 @@ main:
 	movq	%rsp, %rbp
 .LCFI1:
 	.cfi_def_cfa_register 6
-	subq	$32, %rsp
+	subq	$48, %rsp
 	.loc 1 15 0
 	movl	$0x3f800000, %eax
-	movl	%eax, -8(%rbp)
+	movl	%eax, -12(%rbp)
 	.loc 1 17 0
-	movss	-8(%rbp), %xmm1
+	movl	$0, -8(%rbp)
+	jmp	.L2
+.L3:
+	.loc 1 18 0 discriminator 2
+	movss	-12(%rbp), %xmm1
 	movss	.LC0(%rip), %xmm0
 	addss	%xmm1, %xmm0
-	movss	%xmm0, -8(%rbp)
-	.loc 1 19 0
-	movss	-8(%rbp), %xmm1
+	movss	%xmm0, -12(%rbp)
+	.loc 1 17 0 discriminator 2
+	addl	$1, -8(%rbp)
+.L2:
+	.loc 1 17 0 is_stmt 0 discriminator 1
+	cmpl	$9, -8(%rbp)
+	jle	.L3
+	.loc 1 20 0 is_stmt 1
+	movss	-12(%rbp), %xmm1
 	movss	.LC0(%rip), %xmm0
 	addss	%xmm1, %xmm0
-	movss	%xmm0, -8(%rbp)
-	movl	-8(%rbp), %eax
+	movss	%xmm0, -12(%rbp)
+	movl	-12(%rbp), %eax
 	movl	%eax, -4(%rbp)
-	.loc 1 21 0
-	movl	-8(%rbp), %eax
+	.loc 1 22 0
+	movl	-12(%rbp), %eax
 	movl	%eax, -4(%rbp)
-	movss	-8(%rbp), %xmm1
+	movss	-12(%rbp), %xmm1
 	movss	.LC0(%rip), %xmm0
 	addss	%xmm1, %xmm0
-	movss	%xmm0, -8(%rbp)
-	.loc 1 25 0
+	movss	%xmm0, -12(%rbp)
+	.loc 1 26 0
 	movabsq	$4612924508324914790, %rax
 	movq	%rax, -32(%rbp)
-	.loc 1 26 0
+	.loc 1 27 0
 	movabsq	$4611686018427387904, %rax
 	movq	%rax, -24(%rbp)
-	.loc 1 27 0
+	.loc 1 29 0
+	movl	$0, -8(%rbp)
+	jmp	.L4
+.L5:
+	.loc 1 30 0 discriminator 2
 	movsd	-32(%rbp), %xmm0
 	mulsd	-32(%rbp), %xmm0
-	movsd	%xmm0, -16(%rbp)
-	.loc 1 28 0
+	movsd	-40(%rbp), %xmm1
+	addsd	%xmm1, %xmm0
+	movsd	%xmm0, -40(%rbp)
+	.loc 1 29 0 discriminator 2
+	addl	$1, -8(%rbp)
+.L4:
+	.loc 1 29 0 is_stmt 0 discriminator 1
+	cmpl	$999, -8(%rbp)
+	jle	.L5
+	.loc 1 31 0 is_stmt 1
 	movl	$.LC3, %eax
 	movsd	.LC4(%rip), %xmm0
 	movq	%rax, %rdi
 	movl	$1, %eax
 	call	printf
-	.loc 1 29 0
+	.loc 1 32 0
 	movl	$0, %eax
-	.loc 1 30 0
+	.loc 1 33 0
 	leave
 .LCFI2:
 	.cfi_def_cfa 7, 8
@@ -81,7 +103,7 @@ main:
 .Letext0:
 	.section	.debug_info,"",@progbits
 .Ldebug_info0:
-	.long	0xd5
+	.long	0xe1
 	.value	0x2
 	.long	.Ldebug_abbrev0
 	.byte	0x8
@@ -154,7 +176,7 @@ main:
 	.long	0x6c
 	.byte	0x2
 	.byte	0x91
-	.sleb128 -24
+	.sleb128 -28
 	.uleb128 0x5
 	.string	"j"
 	.byte	0x1
@@ -164,9 +186,17 @@ main:
 	.byte	0x91
 	.sleb128 -20
 	.uleb128 0x5
+	.string	"z"
+	.byte	0x1
+	.byte	0x10
+	.long	0x57
+	.byte	0x2
+	.byte	0x91
+	.sleb128 -24
+	.uleb128 0x5
 	.string	"d"
 	.byte	0x1
-	.byte	0x19
+	.byte	0x1a
 	.long	0x73
 	.byte	0x2
 	.byte	0x91
@@ -174,7 +204,7 @@ main:
 	.uleb128 0x5
 	.string	"k"
 	.byte	0x1
-	.byte	0x1a
+	.byte	0x1b
 	.long	0x73
 	.byte	0x2
 	.byte	0x91
@@ -182,11 +212,11 @@ main:
 	.uleb128 0x5
 	.string	"c"
 	.byte	0x1
-	.byte	0x1b
+	.byte	0x1c
 	.long	0x73
 	.byte	0x2
 	.byte	0x91
-	.sleb128 -32
+	.sleb128 -56
 	.byte	0
 	.byte	0
 	.section	.debug_abbrev,"",@progbits
@@ -327,17 +357,17 @@ main:
 	.string	"main"
 .LASF6:
 	.string	"long int"
-.LASF10:
-	.string	"GNU C 4.6.1"
 .LASF9:
 	.string	"double"
+.LASF10:
+	.string	"GNU C 4.6.3"
+.LASF12:
+	.string	"/homes/za1610/indProject/DynamoRIO/tests"
 .LASF8:
 	.string	"float"
 .LASF5:
 	.string	"short int"
-.LASF12:
-	.string	"/home/zhanar/indProject/DynamoRIO/tests"
 .LASF4:
 	.string	"signed char"
-	.ident	"GCC: (Ubuntu/Linaro 4.6.1-9ubuntu3) 4.6.1"
+	.ident	"GCC: (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3"
 	.section	.note.GNU-stack,"",@progbits

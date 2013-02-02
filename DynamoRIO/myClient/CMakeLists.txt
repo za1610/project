@@ -139,11 +139,13 @@ foreach (src ${srcs})
     if (SHOW_SYMBOLS  AND DR_EXT_DRSYMS_STATIC) #AND "${tgt}" STREQUAL "instrcalls"
       # required for using drsyms built as a static library
       set(DynamoRIO_USE_LIBC ON)
+			use_DynamoRIO_extension(${tgt} drcontainers)
     endif ()
     configure_DynamoRIO_client(${tgt})
 
     if (SHOW_SYMBOLS ) #AND "${tgt}" STREQUAL "instrcalls"
       use_DynamoRIO_extension(${tgt} drsyms)
+  		use_DynamoRIO_extension(${tgt} drcontainers)
       if (DR_EXT_DRSYMS_STATIC)
         set(DynamoRIO_USE_LIBC OFF) # reset
       endif ()
@@ -166,6 +168,7 @@ foreach (src ${srcs})
       ARGS -E echo "Usage: pass to drconfig or drrun: -client ${tgtnm} 0 \"\""
       VERBATIM)
   endif ("${tgt}" STREQUAL "tracedump")
+
 
   set(tgts ${tgts} ${tgt})
 endforeach (src)

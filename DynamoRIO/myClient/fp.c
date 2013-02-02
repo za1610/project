@@ -33,9 +33,13 @@
 #include "dr_api.h"
 
 #include "../ext/include/drsyms.h"
+#include "../ext/include/hashtable.h"
+#include "../ext/include/drvector.h"
+
+#include <stdlib.h>
+#include <stdio.h>
 
 # define MAX_SYM_RESULT 256
-#define SHOW_SYMBOLS
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -53,9 +57,384 @@ file_t logF;
 static int fp_count = 0;
 static void *count_mutex; /* for multithread support */
 static client_id_t client_id;
+
+#define HASH_BITS 8
+
+static hashtable_t fpTable;
+static drvector_t addrTable;
+
+void table_init();
+void printTable();
+
+//////////////////////////////////HASHTABLE
+
+#define INITIAL_SIZE 10
+
+
+static int addr_arr[10];
+static int size_arr;
+
+#define MAP_MISSING -3  /* No such element */
+#define MAP_FULL -2 	/* Hashmap is full */
+#define MAP_OMEM -1 	/* Out of Memory */
+#define MAP_OK 0 	/* OK */
+typedef void *any_t;
+typedef int (*PFany)(any_t, any_t);
+typedef any_t map_t;
+
+// We need to keep keys and values
+typedef struct _hashmap_element{
+	int key;
+	int in_use;
+	any_t data;
+} hashmap_element;
+
+// A hashmap has some maximum size and current size,
+// as well as the data to hold.
+typedef struct _hashmap_map{
+	int table_size;
+	int size;
+	hashmap_element *data;
+} hashmap_map;
+
+/*
+ * Return an empty hashmap, or NULL on failure.
+ */
+map_t hashmap_new() {
+	hashmap_map* m = (hashmap_map*) malloc(sizeof(hashmap_map));
+	if(!m) goto err;
+
+	m->data = (hashmap_element*) calloc(INITIAL_SIZE, sizeof(hashmap_element));
+	if(!m->data) goto err;
+
+	
+
+	m->table_size = INITIAL_SIZE;
+	m->size = 0;
+
+	return m;
+	err:
+		if (m)
+			hashmap_free(m);
+		return NULL;
+}
+
+/*
+ * Hashing function for an integer
+ */
+unsigned int hashmap_hash_int(hashmap_map * m, unsigned int key){
+	/* Robert Jenkins' 32 bit Mix Function */
+	key += (key << 12);
+	key ^= (key >> 22);
+	key += (key << 4);
+	key ^= (key >> 9);
+	key += (key << 10);
+	key ^= (key >> 2);
+	key += (key << 7);
+	key ^= (key >> 12);
+
+	/* Knuth's Multiplicative Method */
+	key = (key >> 3) * 2654435761;
+
+	return key % m->table_size;
+}
+
+/*
+ * Return the integer of the location in data
+ * to store the point to the item, or MAP_FULL.
+ */
+int hashmap_hash(map_t in, int key){
+	int curr;
+	int i;
+
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map *) in;
+
+	/* If full, return immediately */
+	if(m->size == m->table_size) return MAP_FULL;
+
+	/* Find the best index */
+	curr = hashmap_hash_int(m, key);
+
+	/* Linear probling */
+	for(i = 0; i< m->table_size; i++){
+		if(m->data[curr].in_use == 0)
+			return curr;
+
+		if(m->data[curr].key == key && m->data[curr].in_use == 1)
+			return curr;
+
+		curr = (curr + 1) % m->table_size;
+	}
+
+	return MAP_FULL;
+}
+
+/*
+ * Doubles the size of the hashmap, and rehashes all the elements
+ */
+int hashmap_rehash(map_t in){
+	int i;
+	int old_size;
+	hashmap_element* curr;
+
+	/* Setup the new elements */
+	hashmap_map *m = (hashmap_map *) in;
+	hashmap_element* temp = (hashmap_element *)
+		calloc(2 * m->table_size, sizeof(hashmap_element));
+	if(!temp) return MAP_OMEM;
+
+	/* Update the array */
+	curr = m->data;
+	m->data = temp;
+
+	/* Update the size */
+	old_size = m->table_size;
+	m->table_size = 2 * m->table_size;
+	m->size = 0;
+
+	/* Rehash the elements */
+	for(i = 0; i < old_size; i++){
+		int status = hashmap_put(m, curr[i].key, curr[i].data);
+		if (status != MAP_OK)
+			return status;
+	}
+
+	free(curr);
+
+	return MAP_OK;
+}
+
+/*
+ * Add a pointer to the hashmap with some key
+ */
+int hashmap_put(map_t in, int key, any_t value){
+	int index;
+	hashmap_map* m;
+
+	/* Cast the hashmap */
+	m = (hashmap_map *) in;
+
+
+
+	/* Find a place to put our value */
+	index = hashmap_hash(in, key);
+	while(index == MAP_FULL){
+		if (hashmap_rehash(in) == MAP_OMEM) {
+			return MAP_OMEM;
+		}
+		index = hashmap_hash(in, key);
+	}
+
+	/* Set the data */
+	m->data[index].data = value;
+	m->data[index].key = key;
+	m->data[index].in_use = 1;
+	m->size++; 
+
+
+	return MAP_OK;
+}
+
+/*
+ * Get your pointer out of the hashmap with a key
+ */
+int hashmap_get(map_t in, int key, any_t *arg){
+	int curr;
+	int i;
+	hashmap_map* m;
+
+	/* Cast the hashmap */
+	m = (hashmap_map *) in;
+
+	/* Find data location */
+	curr = hashmap_hash_int(m, key);
+
+	/* Linear probing, if necessary */
+	for(i = 0; i< m->table_size; i++){
+
+		if(m->data[curr].key == key && m->data[curr].in_use == 1){
+			*arg = (int *) (m->data[curr].data);
+			return MAP_OK;
+		}
+
+		curr = (curr + 1) % m->table_size;
+	}
+
+	*arg = NULL;
+
+	/* Not found */
+	return MAP_MISSING;
+}
+
+
+/*
+ * Iterate the function parameter over each element in the hashmap.  The
+ * additional any_t argument is passed to the function as its first
+ * argument and the hashmap element is the second.
+ */
+int hashmap_iterate(map_t in, PFany f, any_t item) {
+	int i;
+
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map*) in;
+
+	/* On empty hashmap, return immediately */
+	if (hashmap_length(m) <= 0)
+		return MAP_MISSING;	
+
+	/* Linear probing */
+	for(i = 0; i< m->table_size; i++)
+		if(m->data[i].in_use != 0) {
+			any_t data = (any_t) (m->data[i].data);
+			int status = f(item, data);
+			if (status != MAP_OK) {
+				return status;
+			}
+		}
+
+        return MAP_OK;
+}
+
+/*
+ * Remove an element with that key from the map
+ */
+int hashmap_remove(map_t in, int key){
+	int i;
+	int curr;
+	hashmap_map* m;
+
+	/* Cast the hashmap */
+	m = (hashmap_map *) in;
+
+	/* Find key */
+	curr = hashmap_hash_int(m, key);
+
+	/* Linear probing, if necessary */
+	for(i = 0; i< m->table_size; i++){
+		if(m->data[curr].key == key && m->data[curr].in_use == 1){
+			/* Blank out the fields */
+			m->data[curr].in_use = 0;
+			m->data[curr].data = NULL;
+			m->data[curr].key = 0;
+
+			/* Reduce the size */
+			m->size--;
+			return MAP_OK;
+		}
+		curr = (curr + 1) % m->table_size;
+	}
+
+
+	/* Data not found */
+	return MAP_MISSING;
+}
+
+/* Deallocate the hashmap */
+void hashmap_free(map_t in){
+	hashmap_map* m = (hashmap_map*) in;
+	free(m->data);
+	free(m);
+}
+
+/* Return the length of the hashmap */
+int hashmap_length(map_t in){
+	hashmap_map* m = (hashmap_map *) in;
+	if(m != NULL) return m->size;
+	else return 0;
+}
+
+
+#define KEY_MAX_LENGTH (256)
+#define KEY_COUNT 10 
+//(1024*1024)
+
+typedef struct data_struct_s
+{
+    int key;
+    int number;
+} data_struct_t;
+
+static map_t mymap;
+
+void htinit(){
+	mymap = hashmap_new();
+}
+
+
+int func(int n, data_struct_t * value){
+	printf("hhhh %p\n", value);
+printf("IN FUNC: Key is "PIFX" and Value is %d\n",value->key, value->number );
+return 0;
+}
+
+
+int hashmap_it() {
+	int i;
+printf("here\n");
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map*) mymap;
+
+	/* On empty hashmap, return immediately */
+	if (hashmap_length(m) <= 0)
+		return MAP_MISSING;	
+
+printf("here1\n");
+	/* Linear probing */
+	for(i = 0; i< m->table_size; i++)
+		if(m->data[i].in_use != 0) {
+			
+printf("here2\n");
+			data_struct_t* data = (data_struct_t*) (m->data[i].data);
+
+printf("here3\n");
+			int status = func(3, &data);
+	
+printf("here4\n");
+		if (status != MAP_OK) {
+				return status;
+			}
+		}
+
+        return MAP_OK;
+}
+
+void printht(){
+
+//hashmap_iterate(mymap, func, 3);
+hashmap_it();
+printf("HashMap size is %d\n", ((hashmap_map*)mymap)->size);
+int i;
+data_struct_t * value;
+for(i = 0; i < size_arr; i++){
+
+//printf("Array %d\n", addr_arr[])
+int  error = hashmap_get(mymap, addr_arr[i], (void**)(&value));
+printf("Key is "PIFX" and Value is %d\n",value->key, value->number );
+}
+
+}
+
+
+
+
+
+//////////////HASHTABLE end
+
+
+
+
+
+
+
+
+
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+size_arr = 0;
+
     dr_register_exit_event(exit_event);
     dr_register_bb_event(bb_event);
     count_mutex = dr_mutex_create();
@@ -66,7 +445,8 @@ dr_init(client_id_t id)
     }
 #endif
 
-
+//table_init();
+htinit();
 }
 
 static void
@@ -91,24 +471,48 @@ exit_event(void)
         dr_log(NULL, LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
     }
 #endif
+printht();
+//printTable();
 
 }
-/*
-static void
-callback(app_pc addr, uint divisor)
-{
-  //   * instead of a lock could use atomic operations to
-  //   * increment the counters 
-    dr_mutex_lock(count_mutex);
 
-    div_count++;
+void
+table_init(){
+  hashtable_init(&fpTable, HASH_BITS, HASH_INTPTR, false);
+  int key = 4195601;
+  int value = 1;
+  hashtable_add(&fpTable, &key, value);
+  int key1 = 4195623;
+  int value1 = 23;
+  hashtable_add(&fpTable, &key1, value1);
 
-  //   check for power of 2 
-    if ((divisor & (divisor - 1)) != 0)
-        div_p2_count++;
+  int key2 = 4195657;
+  int value2 = 57;
+  hashtable_add(&fpTable, &key2, value2);
 
-    dr_mutex_unlock(count_mutex);
-}*/
+
+
+  drvector_init(&addrTable, 10, true, NULL);
+
+}
+
+void
+printTable(){
+	int i, v, k;
+	for(i = 0; i < 10; i++){
+		k = (int*)drvector_get_entry(&addrTable, i);
+		v = (int* )hashtable_lookup(&fpTable, &k);
+		printf("Table values are: %d %d\n", k, v);
+	}
+
+  int key1 = 4195623;
+  int d = (int*) hashtable_lookup(&fpTable, &key1);
+  printf("RESULT&&&&&&&&&&& %d\n", d);
+
+  int key2 = 4195657;
+  d = (int*) hashtable_lookup(&fpTable, &key2);
+  printf("RESULT&&&&&&&&&&& %d\n", d);
+}
 
 void
 writeLog(void* drcontext){
@@ -134,7 +538,7 @@ writeLog(void* drcontext){
 	#ifdef SHOW_RESULTS
     	if (dr_is_notify_on()) {
 //        	dr_fprintf(STDERR, "<floating point instruction operands for thread %d in %s>\n",
- //                  dr_get_thread_id(drcontext), logname);
+//                  dr_get_thread_id(drcontext), logname);
     	}
 	#endif	
 
@@ -188,11 +592,16 @@ bool is_SIMD_arithm(int opcode){
 
 }
 
+bool is_SIMD_packed(int opcode){
+	return (opcode == OP_addps || opcode == OP_addpd || opcode == OP_mulps || opcode == OP_mulpd ||
+	    opcode == OP_subps || opcode == OP_subpd || opcode == OP_divps || opcode == OP_divpd ||	
+	    opcode == OP_sqrtps || opcode == OP_sqrtpd || opcode == OP_rsqrtps);	
+}
+
 
 bool is_single_precision_instr(int opcode){
 	return (opcode == OP_addss || opcode == OP_mulss || opcode == OP_subss || 
 		opcode == OP_divss || opcode == OP_sqrtss  || opcode == OP_rsqrtss);	
-
 }
 
 
@@ -203,6 +612,43 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	const char * r2Name = get_register_name(r2);
 	int s1        = atoi(r1Name + 3 * sizeof(char));
 	int s2        = atoi(r2Name + 3 * sizeof(char));
+
+	int error;
+	data_struct_t* value;
+	value = malloc(sizeof(data_struct_t));
+	error = hashmap_get(mymap, addr, (void**)(&value));
+	if(error == MAP_MISSING){
+		free(value);
+		value = malloc(sizeof(data_struct_t));
+		addr_arr[size_arr] = addr;
+		size_arr++;
+		value->number = 0;
+	}
+	value->key = addr;        
+	value->number++;
+        error = hashmap_put(mymap, addr, value);
+        if(error!=MAP_OK){printf("Error\n");}
+
+/*
+	int key = (int)addr;
+	printf("Address is %d %d\n", addr, key);	
+        int value = (int*)hashtable_lookup(&fpTable,&key);
+	printf("value is %d\n");
+	if(hashtable_lookup(&fpTable,&key) == NULL ){
+		printf("HERE!!!!!!!!!!!!!!!\n");
+		value = 1;
+        	hashtable_add(&fpTable, &key, value);
+		drvector_append(&addrTable, &key);
+	}
+	else{
+		printf("else case\n");
+		value++;
+        	hashtable_add_replace(&fpTable, &key, value);
+	}
+	
+	int v1 = (int*) hashtable_lookup(&fpTable,&key);
+	printf("value after %d\n", v1);
+*/
 
 	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
@@ -231,26 +677,40 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	print_address(addr);
 }
 
-/*
-static void
-fpRegs(){
-  	dr_mcontext_t mcontext;
-   	memset(&mcontext, 0, sizeof(dr_mcontext_t));
-   	mcontext.flags = DR_MC_ALL;
-   	mcontext.size = sizeof(dr_mcontext_t);
-   	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-//	printf("displacement is %d\n", displacement);
-   	printf("RBP contents: %f\n", *(float*)(mcontext.rbp - 48));
-//   	op2 = *(float*)(mcontext.rbp -32);	
-}
-*/
-
-
 static void
 callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc addr){
 	int r, s;
    	const char * destRegName = get_register_name(destReg);
    	int regId = atoi(destRegName + 3 * sizeof(char));
+	
+	int error;
+	data_struct_t* value;
+	value = malloc(sizeof(data_struct_t));
+	error = hashmap_get(mymap, addr, (void**)(&value));
+	if(error == MAP_MISSING){
+		free(value);
+		value = malloc(sizeof(data_struct_t));
+		addr_arr[size_arr] = addr;
+		size_arr++;
+		value->number = 0;
+	}
+	value->key = addr;        
+	value->number++;
+        error = hashmap_put(mymap, value->key, value);
+        if(error!=MAP_OK){printf("Error\n");}
+
+/*
+        int value = (int*)hashtable_lookup(&fpTable,&addr);
+	if(value == NULL){
+		value = 1;
+        	hashtable_add(&fpTable, &addr, value);
+		drvector_append(&addrTable, &addr);
+	}
+	else{
+		value++;
+        	hashtable_add_replace(&fpTable, &addr, value);
+	}
+*/
 
    	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
@@ -314,34 +774,21 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr, *next_instr;
     int opcode;
-	writeLog(drcontext);
+    writeLog(drcontext);
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
-//	if(instr_is_floating(instr)){
-//	    	printf("Floating point instruction \n");  
-//	}
-
-//padded? addpd? addps? AVX? FPU instruction fadd??? 
-//rcpps?
-/*	if(opcode == OP_ret){
-
-	    		writeLog(drcontext);
-		printf("In return \n");
-		dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) print_address, true, 1, OPND_CREATE_INTPTR(instr_get_app_pc(instr))); 
+	if(instr_is_floating(instr)){
+   		dr_fprintf(logF, "Has seen FPU instruction with opcode %d\n",opcode);
+	
 	}
-*/
-	if(opcode == OP_faddp){
-		
-	//		dr_insert_clean_call(drcontext, bb, instr, 
-//			(void*) fpRegs, true, 0); 
+	else if(is_SIMD_packed(opcode)){
+   		dr_fprintf(logF, "Has seen SIMD packed instruction with opcode %d\n",opcode);
 	}
-	if(is_SIMD_arithm(opcode)){
+//AVX?rcpps?
+
+	else if(is_SIMD_arithm(opcode)){
 		int is_single = 0;
-//	if (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
-//	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
-//	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss) { 
 		printf("opcode is   %d\n", opcode);
     		printf("number of sources  %d\n", instr_num_srcs(instr));  
     		printf("number of dests  %d\n", instr_num_dsts(instr));
@@ -390,12 +837,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		//should not be the case, throw an exception
 		}
 	        fp_count++; 
-	//  dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
-           //                      false /*no fp save*/, 2,
-            //                     OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
-             //                    instr_get_src(instr, 0) /*divisor is 1st src*/);
-        }
+      }
     }
+
     return DR_EMIT_DEFAULT;
 }
 
