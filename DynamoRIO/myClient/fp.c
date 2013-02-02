@@ -133,8 +133,8 @@ writeLog(void* drcontext){
            dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 	#ifdef SHOW_RESULTS
     	if (dr_is_notify_on()) {
-        	dr_fprintf(STDERR, "<floating point instruction operands for thread %d in %s>\n",
-                   dr_get_thread_id(drcontext), logname);
+//        	dr_fprintf(STDERR, "<floating point instruction operands for thread %d in %s>\n",
+ //                  dr_get_thread_id(drcontext), logname);
     	}
 	#endif	
 
@@ -145,7 +145,6 @@ static void
 print_address(app_pc addr)
 {
     const char* prefix = "PRINT ADDRESS: ";
-  // file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
     drsym_error_t symres;
     drsym_info_t *sym;
     char sbuf[sizeof(*sym) + MAX_SYM_RESULT];
@@ -155,26 +154,24 @@ print_address(app_pc addr)
         dr_fprintf(logF, "%s data is null "PFX" \n", prefix, addr);
         return;
     }
-//    dr_fprintf(logF, "module name %s\n", data->names.file_name);
     sym = (drsym_info_t *) sbuf;
     sym->struct_size = sizeof(*sym);
     sym->name_size = MAX_SYM_RESULT;   
 
-//    dr_fprintf(logF, "2 %s %s "PFX"  start "PFX"\n", prefix, data->full_path, addr,addr - data->start);
-
     symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
                            DRSYM_DEFAULT_FLAGS);
+
 
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         const char *modname = dr_module_preferred_name(data);
         if (modname == NULL)
             modname = "<noname>";
-        dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX" \n", prefix, addr,
-                   modname, sym->name, addr - data->start - sym->start_offs);
+        dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX", line off "PFX" \n", prefix, addr,
+                   modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
             dr_fprintf(logF, "%s Line is not available\n", prefix);
         } else {
-            dr_fprintf(logF, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
+            dr_fprintf(logF, "Line number is  %s:%"UINT64_FORMAT_CODE" %d\n",
                        sym->file, sym->line, sym->line_offs);
         }
     } else
@@ -215,18 +212,18 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	int r, s;
 	float op1, op2;
 	if(is_single_precision_instr(opcode)){
-		for(r=0; r<16; ++r)
-			for(s=0; s<4; ++s)
-		     		printf("reg %i.%i: %f\n", r, s, 
-					*((float*) &mcontext.ymm[r].u32[s]));
+//		for(r=0; r<16; ++r)
+//			for(s=0; s<4; ++s)
+//		     		printf("reg %i.%i: %f\n", r, s, 
+//					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[s1].u32[0]);
 		op2 = *((float*) &mcontext.ymm[s2].u32[0]);
 	}
 	else{
-		for(r=0; r<16; ++r)
-    			for(s=0; s<2; ++s)
-	     			printf("reg %i.%i: %f\n", r, s, 
-					*((double*) &mcontext.ymm[r].u64[s]));
+//		for(r=0; r<16; ++r)
+//    			for(s=0; s<2; ++s)
+//	     			printf("reg %i.%i: %f\n", r, s, 
+//					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[s1].u64[0]);
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
 	}
@@ -287,10 +284,10 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
    		float op1, op2;
    		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
    		op2 = *(float*)(mem_reg + displacement);
-		for(r=0; r<16; ++r)
-			for(s=0; s<4; ++s)
-		     		printf("reg %i.%i: %f\n", r, s, 
-					*((float*) &mcontext.ymm[r].u32[s]));
+//		for(r=0; r<16; ++r)
+//			for(s=0; s<4; ++s)
+//		     		printf("reg %i.%i: %f\n", r, s, 
+//					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
    		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 	}
@@ -298,10 +295,10 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		double op1, op2;
    		printf("Mem reg contents: %lf\n", *(double*)(mem_reg + displacement));
    		op2 = *(double*)(mem_reg + displacement);
-		for(r=0; r<16; ++r)
-    			for(s=0; s<2; ++s)
-	     			printf("reg %i.%i: %lf\n", r, s, 
-					*((double*) &mcontext.ymm[r].u64[s]));
+//		for(r=0; r<16; ++r)
+ //   			for(s=0; s<2; ++s)
+//	     			printf("reg %i.%i: %lf\n", r, s, 
+//					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[regId].u64[0]);
    		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
 	}
@@ -362,7 +359,6 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 	ref = instr_get_src(instr, 0);
 	drutil_insert_get_mem_addr(drcontext, bb, instr, ref, reg1, reg2);
 */
-//	    		writeLog(drcontext);
 			dr_print_instr(drcontext, logF, instr, "INSTR: ");
 			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
 			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
@@ -378,7 +374,6 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			reg_id_t reg2 = opnd_get_reg(source2);
 			printf("register1 is %s\n", get_register_name(reg1));
 			printf("register2 is %s\n", get_register_name(reg2));
-//			writeLog(drcontext);
 			
 			dr_print_instr(drcontext, logF, instr, "INSTR: ");
 			dr_print_opnd(drcontext, logF, source1, "OPND1: ");

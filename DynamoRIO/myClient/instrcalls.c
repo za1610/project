@@ -165,7 +165,7 @@ print_address(file_t f, app_pc addr, const char *prefix)
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
             dr_fprintf(f, " ??:0\n");
         } else {
-            dr_fprintf(f, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
+            dr_fprintf(f, "LINe is available %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
                        sym->file, sym->line, sym->line_offs);
         }
     } else
