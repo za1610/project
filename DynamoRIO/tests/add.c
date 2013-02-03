@@ -11,6 +11,8 @@
    {
        z = Add1(p, y);
        printf("p = %f\t\ty = %f\n",p,y);
+				float b = 0;
+				b++;
      //  Add1Again(p, &z);
      //  printf("p = %f\t\tz = %f\n",p,z);
    }
