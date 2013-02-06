@@ -1,8 +1,0 @@
-events: Instructions Flops
-positions: instr line
-fl=/homes/za1610/indProject/DynamoRIO/tests/add.c
-fn=Add1
-0x400507 3 1
-fl=/homes/za1610/indProject/DynamoRIO/tests/add.c
-fn=main
-0x400576 15 1

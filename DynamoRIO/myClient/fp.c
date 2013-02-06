@@ -811,7 +811,10 @@ writeCallgrind(void* drcontext){
     	}
 	#endif	
 
-       	dr_fprintf(logOut, "events: Instructions Flops\npositions: instr line\n");
+       	dr_fprintf(logOut, "version: 1\n");
+       	dr_fprintf(logOut, "creator: callgrind-3.6.1-Debian\n");
+       	dr_fprintf(logOut, "positions: instr line\n");
+       	dr_fprintf(logOut, "events: Ir\n");
 
 }
 
