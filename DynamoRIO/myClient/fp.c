@@ -37,6 +37,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 # define MAX_SYM_RESULT 256
 
@@ -658,11 +659,14 @@ typedef struct
 } outer_hash_entry;
 
 typedef struct
- {
-     int addr;  
-     int line_number;
-     int call_count; 
- } inner_hash_entry;
+{
+    int addr;  
+    int line_number;
+    int call_count;
+    int no_bits;
+    double loss;     
+ 
+} inner_hash_entry;
  
 
 
@@ -704,7 +708,35 @@ printf("IN FUNC: Key is "PIFX" \n",data->key );
         return MAP_OK;
 }
 
+
+struct FP{
+unsigned int mantissa: 23;
+unsigned int exponent: 8;
+unsigned int sign: 1;
+};
+
+
+struct DP{
+unsigned long mantissa: 52;
+unsigned int exponent: 11;
+unsigned int sign: 1;
+};
+
+
+
 void printht(){
+
+float x, y;
+int z;
+x = 10.123;
+y = frexpf(x, &z);
+printf("!!!!!!!!!!! %f %d\n", y, z);
+//int fl = *(int*)&x;
+//printf("hex rep %x\n", fl);
+struct FP* fp = (struct FP*)&x;
+printf("biased exponent %u mantissa = %u \n",fp->exponent, fp->mantissa);
+
+
 	printf("IN PRINT\n");
 
 	outer_hash_entry* entry = hashmapGet(functionmap, "main");
@@ -719,13 +751,13 @@ dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
 		printf("Looking for addr %d\n", addr_arr[i]);
 		error = hashmap_get(entry->mapAddrs, addr_arr[i], (void**)(&inVal));
 		if(error == MAP_OK){
-			printf("%d %d %d\n", inVal->addr, inVal->call_count, inVal->line_number );
+			printf("%d %d %d bits %d\n", inVal->addr, inVal->call_count, inVal->line_number, inVal->no_bits );
         		dr_fprintf(logOut, ""PIFX" %d %d\n",inVal->addr,inVal->line_number,inVal->call_count);
 		}
 		else 
 			printf("not this function %d\n", error);
 }
-
+/*
 	entry = hashmapGet(functionmap, "substr");
 
 dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
@@ -739,8 +771,9 @@ dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
 		}
 		else 
 			printf("not this function %d\n", error);
-}
 
+}
+*/
 /*
 //hashmap_it();
 printf("HashMap size is %d\n", ((hashmap_map*)mymap)->size);
@@ -885,7 +918,7 @@ writeLog(void* drcontext){
 
 
 static void
-print_address(app_pc addr)
+print_address(app_pc addr, int bits, double loss)
 {
 
     const char* prefix = "PRINT ADDRESS: ";
@@ -953,6 +986,8 @@ if(hashmapGet(functionmap, key_string) == 0){
 
 	inVal->addr = addr;        
 	inVal->call_count++;
+	inVal->no_bits = bits;
+	inVal->loss = loss;
         error = hashmap_put(value->mapAddrs, addr, inVal);
         if(error!=MAP_OK){printf("Error\n");}
 
@@ -1069,52 +1104,85 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 */
 ////////////////////
 
-/*
-	int key = (int)addr;
-	printf("Address is "PIFX" %d\n", addr, key);	
-        int value = (int*)hashtable_lookup(&fpTable,&key);
-	printf("value is %d\n");
-	if(hashtable_lookup(&fpTable,&key) == NULL ){
-		printf("HERE!!!!!!!!!!!!!!!\n");
-		value = 1;
-        	hashtable_add(&fpTable, &key, value);
-		drvector_append(&addrTable, &key);
-	}
-	else{
-		printf("else case\n");
-		value++;
-        	hashtable_add_replace(&fpTable, &key, value);
-	}
-	
-	int v1 = (int*) hashtable_lookup(&fpTable,&key);
-	printf("value after %d\n", v1);
-*/
-
 	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
    	mcontext.flags = DR_MC_MULTIMEDIA;
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	int r, s;
-	float op1, op2;
+	int bits = 0;
+	double loss = 0;
 	if(is_single_precision_instr(opcode)){
+		float op1, op2;
 //		for(r=0; r<16; ++r)
 //			for(s=0; s<4; ++s)
 //		     		printf("reg %i.%i: %f\n", r, s, 
 //					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[s1].u32[0]);
 		op2 = *((float*) &mcontext.ymm[s2].u32[0]);
+       		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+		int exp1, exp2;
+		float mant1, mant2;
+		/*mant1 = frexpf(op1, &exp1);
+		mant2 = frexpf(op2, &exp2);
+		bits = abs(exp1-exp2);
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		*/
+		//////adding zero case
+		struct FP* fp = (struct FP*)&op1;
+	        exp1 = fp->exponent - 127;
+		mant1 = fp->mantissa;	
+		fp = (struct FP*)&op2;
+	        exp2 = fp->exponent - 127;
+		mant2 = fp->mantissa;
+		bits =abs(exp1-exp2);	
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		int mask = 0;
+		int ind = 0;
+		for(ind= 0; ind < bits; ind++){
+			mask = mask << 1;
+			mask = mask | 1;
+		}
+		printf("mask value in hex %x\n", mask);
+		if(exp1 < exp2){
+
+		}
+		else{
+
+		}
+
+
 	}
 	else{
+		double op1, op2;
 //		for(r=0; r<16; ++r)
 //    			for(s=0; s<2; ++s)
 //	     			printf("reg %i.%i: %f\n", r, s, 
 //					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[s1].u64[0]);
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
+       		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
+		int exp1, exp2;
+		double mant1, mant2;
+		/*mant1 = frexp(op1, &exp1);
+		mant2 = frexp(op2, &exp2);
+		bits = abs(exp1-exp2);
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		*/
+		struct DP* dp = (struct DP*)&op1;
+	        exp1 = dp->exponent - 1023;	
+		mant1 = dp->mantissa;
+		dp = (struct DP*)&op2;
+	        exp2 = dp->exponent - 1023;
+		mant2 = dp->mantissa;
+		bits =abs(exp1-exp2);
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
 	}
-       	dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
-	print_address(addr);
+	print_address(addr, bits, loss);
 }
 
 static void
@@ -1184,6 +1252,8 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		mem_reg = NULL;
 //deal with a null case, rip enum doesn't exist
 
+	int bits = 0;
+	double loss = 0;
 	if(is_single_precision_instr(opcode)){
    		float op1, op2;
    		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
@@ -1194,6 +1264,49 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 //					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
    		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+		int exp1, exp2;
+		float mant1, mant2;
+		/*mant1 = frexpf(op1, &exp1);
+		mant2 = frexpf(op2, &exp2);
+		bits = abs(exp1-exp2);
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);*/
+		struct FP* fp = (struct FP*)&op1;
+	        exp1 = fp->exponent - 127;	
+		mant1 = fp->mantissa;
+		fp = (struct FP*)&op2;
+	        exp2 = fp->exponent - 127;
+		mant2 = fp->mantissa;
+		bits =abs(exp1-exp2);	
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		unsigned int mask = 0;
+		int ind = 0;
+		for(ind= 0; ind < bits; ind++){
+			mask = mask << 1;
+			mask = mask | 1;
+		
+		}
+		unsigned int expmask = 4286578688;
+		unsigned int totalmask = expmask | mask;
+		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
+		if(exp1>exp2){
+			int intop2 = *(int*)&op2;
+			printf("op2 in hex %x\n", intop2);
+			int bin = intop2 & totalmask;
+			printf("lost in binary %x\n", bin);
+			float lostbits = *(float*)&bin;
+			printf("lost bits are %f\n", lostbits);
+		}
+		else{
+			int intop2 = *(int*)&op1;
+			printf("op2 in hex %x\n", intop2);
+			int bin = intop2 & totalmask;
+			printf("lost in binary %x\n", bin);
+			float lostbits = *(float*)&bin;
+			printf("lost bits are %f\n", lostbits);
+		}
+
 	}
 	else{
 		double op1, op2;
@@ -1205,8 +1318,26 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 //					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[regId].u64[0]);
    		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
+		int exp1, exp2;
+		double mant1, mant2;
+		/*mant1 = frexp(op1, &exp1);
+		mant2 = frexp(op2, &exp2);
+		bits = abs(exp1-exp2);
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		*/
+		struct DP* dp = (struct DP*)&op1;
+	        exp1 = dp->exponent - 1023;	
+		mant1 = dp->mantissa;
+		dp = (struct DP*)&op2;
+	        exp2 = dp->exponent - 1023;
+		mant2 = dp->mantissa;
+		bits =abs(exp1-exp2);	
+		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+	
 	}
-	print_address(addr);
+	print_address(addr, bits, loss);
 }
 
 
@@ -1231,23 +1362,14 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
 	else if(is_SIMD_arithm(opcode)){
 		int is_single = 0;
-		printf("opcode is   %d\n", opcode);
-    		printf("number of sources  %d\n", instr_num_srcs(instr));  
-    		printf("number of dests  %d\n", instr_num_dsts(instr));
+//		printf("opcode is   %d\n", opcode);
+//    		printf("number of sources  %d\n", instr_num_srcs(instr));  
+ //   		printf("number of dests  %d\n", instr_num_dsts(instr));
 		//assert(number of sources = 2);
 		opnd_t source1 = instr_get_src(instr,0);
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
 		if(opnd_is_memory_reference(source1)){
-/*
-	opnd_t   ref;
-    	reg_id_t reg1 = DR_REG_XBX; 
-    	reg_id_t reg2 = DR_REG_XCX;
-	dr_save_reg(drcontext, bb, instr, reg1, SPILL_SLOT_2);
-	dr_save_reg(drcontext, bb, instr, reg2, SPILL_SLOT_3);
-	ref = instr_get_src(instr, 0);
-	drutil_insert_get_mem_addr(drcontext, bb, instr, ref, reg1, reg2);
-*/
 	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
 //			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
 //			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
@@ -1258,19 +1380,10 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
 				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
 
-//	writeLog(drcontext);	
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1);
 			reg_id_t reg2 = opnd_get_reg(source2);
-			printf("register1 is %s\n", get_register_name(reg1));
-			printf("register2 is %s\n", get_register_name(reg2));
-			
-//	writeLog(drcontext);	
-//			dr_print_instr(drcontext, logF, instr, "INSTR: ");
-//			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
-//			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
-
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
 				true, 4, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)

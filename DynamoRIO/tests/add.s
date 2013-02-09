@@ -33,13 +33,13 @@ Add1:
 	.type	p, @object
 	.size	p, 4
 p:
-	.long	1092745631
+	.long	1092745167
 	.globl	y
 	.align 4
 	.type	y, @object
 	.size	y, 4
 y:
-	.long	1039932378
+	.long	1039918957
 	.globl	z
 	.bss
 	.align 4

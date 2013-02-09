@@ -3,8 +3,8 @@
    float Add1(float i, float j){ return i+j;}
  /*  void Add1Again(float i, float *j){ *j = i + *j;  }
 */
-   float p = 10.123443;
-   float y = 0.1231;
+   float p = 10.123;
+   float y = 0.123;
    float z = 0;
 
    void main()
