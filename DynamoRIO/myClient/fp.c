@@ -62,13 +62,6 @@ static char process_path[MAXIMUM_PATH];
 static bool callgrind_log_created = false;
 static int thread_id_for_log = 0;
 
-#define HASH_BITS 8
-
-static hashtable_t fpTable;
-static drvector_t addrTable;
-
-void table_init();
-void printTable();
 
 
 
@@ -76,6 +69,7 @@ void printTable();
 
 typedef struct sHashmap hashmap;
 
+#define HASH_BITS 8
 #define HASHMAP_ILLEGAL 0   
 #define HASHMAP_INSERT 1    
 #define HASHMAP_UPDATE 2    
@@ -363,10 +357,10 @@ typedef void(*fHashmapProc)(const char* key, const void* datum);
 
 
 
-/////////////////////////////////hash with char key
 
+//////////////////////////////////HASHTABLE
 #define INITIAL_SIZE 10
-#define MAX_CHAIN_LENGTH (8)
+//#define MAX_CHAIN_LENGTH (8)
 
 static int addr_arr[10];
 static int size_arr;
@@ -396,7 +390,6 @@ typedef struct _hashmap_map{
 
 
 
-//////////////////////////////////HASHTABLE
 
 unsigned int hashmap_hash_int(hashmap_map * m, unsigned int key){
 /* Robert Jenkins' 32 bit Mix Function */
@@ -561,34 +554,6 @@ int hashmap_get(map_t in, int key, any_t *arg){
 
 
 /*
- * Iterate the function parameter over each element in the hashmap.  The
- * additional any_t argument is passed to the function as its first
- * argument and the hashmap element is the second.
- */
-int hashmap_iterate(map_t in, PFany f, any_t item) {
-	int i;
-
-	/* Cast the hashmap */
-	hashmap_map* m = (hashmap_map*) in;
-
-	/* On empty hashmap, return immediately */
-	if (hashmap_length(m) <= 0)
-		return MAP_MISSING;	
-
-	/* Linear probing */
-	for(i = 0; i< m->table_size; i++)
-		if(m->data[i].in_use != 0) {
-			any_t data = (any_t) (m->data[i].data);
-			int status = f(item, data);
-			if (status != MAP_OK) {
-				return status;
-			}
-		}
-
-        return MAP_OK;
-}
-
-/*
  * Remove an element with that key from the map
  */
 int hashmap_remove(map_t in, int key){
@@ -638,13 +603,14 @@ int hashmap_length(map_t in){
 
 
 #define KEY_MAX_LENGTH (256)
-#define KEY_COUNT 10 
-
+//#define KEY_COUNT 10 
+/*
 typedef struct data_struct_s
 {
     int key;
     int number;
 } data_struct_t;
+*/
 
 static map_t mymap;
 
@@ -668,24 +634,15 @@ typedef struct
  
 } inner_hash_entry;
  
-
-
 void htinit(){
-//	mymap = hashmap_new();
  	functionmap = newHashmap(10);	
 }
 
-int func(int n, data_struct_t * value){
-	printf("hhhh %p\n", value);
-printf("IN FUNC: Key is "PIFX" and Value is %d\n",value->key, value->number );
-return 0;
-}
-
-
-int hashmap_it() {
+int hashmap_it(map_t in, PFany f) {
 	int i;
+	any_t item = NULL;
 	/* Cast the hashmap */
-	hashmap_map* m = (hashmap_map*) mymap;
+	hashmap_map* m = (hashmap_map*) in;
 
 	/* On empty hashmap, return immediately */
 	if (hashmap_length(m) <= 0)
@@ -694,19 +651,34 @@ int hashmap_it() {
 	/* Linear probing */
 	for(i = 0; i< m->table_size; i++)
 		if(m->data[i].in_use != 0) {
-			
-			data_struct_t* data = (m->data[i].data);
-
-printf("IN FUNC: Key is "PIFX" \n",data->key );
-			int status = func(3, (data_struct_t* )data);
-	
-		if (status != MAP_OK) {
+			if(m->data[i].key != 0){
+		//	printf("inside iteration %d\n", m->data[i].key);
+			any_t data = (any_t) (m->data[i].data);
+			int status = f(item, data);
+			if (status != MAP_OK) {
 				return status;
+			}
 			}
 		}
 
         return MAP_OK;
 }
+
+
+int printAddr(any_t t1, inner_hash_entry* entry){
+	printf("addr %d line %d\n", entry->line_number, 10);
+        dr_fprintf(logOut, ""PIFX" %d %d\n",entry->addr,entry->line_number,entry->call_count);
+return 0;
+}
+
+
+void printFunction(char* key, outer_hash_entry* entry){
+	printf("function name is %s and file %s\n", key, entry->file);
+	dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
+	hashmap_it(entry->mapAddrs, &printAddr);
+}
+
+//////////////HASHTABLE end
 
 
 struct FP{
@@ -722,9 +694,8 @@ unsigned int exponent: 11;
 unsigned int sign: 1;
 };
 
-
-
 void printht(){
+	hashmapProcess(functionmap,&printFunction);
 
 float x, y;
 int z;
@@ -736,9 +707,7 @@ printf("!!!!!!!!!!! %f %d\n", y, z);
 struct FP* fp = (struct FP*)&x;
 printf("biased exponent %u mantissa = %u \n",fp->exponent, fp->mantissa);
 
-
-	printf("IN PRINT\n");
-
+/*
 	outer_hash_entry* entry = hashmapGet(functionmap, "main");
 	inner_hash_entry* inVal;
 	int error;
@@ -757,6 +726,7 @@ dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
 		else 
 			printf("not this function %d\n", error);
 }
+*/
 /*
 	entry = hashmapGet(functionmap, "substr");
 
@@ -774,23 +744,7 @@ dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
 
 }
 */
-/*
-//hashmap_it();
-printf("HashMap size is %d\n", ((hashmap_map*)mymap)->size);
-  int i;
-  data_struct_t * value;
-  for(i = 0; i < size_arr; i++){
-	int  error = hashmap_get(mymap, addr_arr[i], (void**)(&value));
-	printf("Key is "PIFX" and Value is %d\n",value->key, value->number );
-  }
-*/
 }
-
-//////////////HASHTABLE end
-
-
-
-
 
 
 
@@ -813,7 +767,6 @@ size_arr = 0;
     }
 #endif
 
-//table_init();
 htinit();
 
 }
@@ -842,47 +795,10 @@ exit_event(void)
 #endif
 printht();
 
-//printTable();
 
 }
 
-void
-table_init(){
-  hashtable_init(&fpTable, HASH_BITS, HASH_INTPTR, false);
-  int key = 4195601;
-  int value = 1;
-  hashtable_add(&fpTable, &key, value);
-  int key1 = 4195623;
-  int value1 = 23;
-  hashtable_add(&fpTable, &key1, value1);
 
-  int key2 = 4195657;
-  int value2 = 57;
-  hashtable_add(&fpTable, &key2, value2);
-
-
-
-  drvector_init(&addrTable, 10, true, NULL);
-
-}
-
-void
-printTable(){
-	int i, v, k;
-	for(i = 0; i < 10; i++){
-		k = (int*)drvector_get_entry(&addrTable, i);
-		v = (int* )hashtable_lookup(&fpTable, &k);
-		printf("Table values are: %d %d\n", k, v);
-	}
-
-  int key1 = 4195623;
-  int d = (int*) hashtable_lookup(&fpTable, &key1);
-  printf("RESULT&&&&&&&&&&& %d\n", d);
-
-  int key2 = 4195657;
-  d = (int*) hashtable_lookup(&fpTable, &key2);
-  printf("RESULT&&&&&&&&&&& %d\n", d);
-}
 
 void
 writeLog(void* drcontext){
@@ -912,9 +828,7 @@ writeLog(void* drcontext){
     	}
 	#endif	
 	thread_id_for_log = dr_get_thread_id(drcontext);
-//writeCallgrind(drcontext);
 }
-
 
 
 static void
@@ -955,20 +869,18 @@ print_address(app_pc addr, int bits, double loss)
                    modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
 
 
-char key_string[KEY_MAX_LENGTH];
-snprintf(key_string, KEY_MAX_LENGTH, "%s", sym->name);
+	char key_string[KEY_MAX_LENGTH];
+	snprintf(key_string, KEY_MAX_LENGTH, "%s", sym->name);
 
-printf("in print address\n");
 	outer_hash_entry* value;
-if(hashmapGet(functionmap, key_string) == 0){
-	value = malloc(sizeof(outer_hash_entry));
-	value->mapAddrs = hashmap_new();
-	snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
-	snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
-	int error = hashmapSet(functionmap, value, value->function_name);
-	printf("Inserted success %d\n", error);
-}
-
+	if(hashmapGet(functionmap, key_string) == 0){
+		value = malloc(sizeof(outer_hash_entry));
+		value->mapAddrs = hashmap_new();
+		snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
+		snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
+		int error = hashmapSet(functionmap, value, value->function_name);
+		printf("Inserted success %d\n", error);
+	}
 	value = hashmapGet(functionmap, key_string);
 	inner_hash_entry* inVal;
 	int error;
@@ -992,20 +904,14 @@ if(hashmapGet(functionmap, key_string) == 0){
         if(error!=MAP_OK){printf("Error\n");}
 
 
+	if(hashmapGet(functionmap, key_string) == 0){
+		printf("Error, didn't insert\n");
+
+	}
 
 
-if(hashmapGet(functionmap, key_string) == 0){
-printf("Error, didn't insert\n");
-
-}
-
-/*        data_struct_t* value;
-	hashmap_get(mymap, addr, (void**)(&value));
- 
-        dr_fprintf(logOut, "fl=%s\nfn=%s\n",sym->file, sym->name );
-        dr_fprintf(logOut, ""PIFX" %d %d\n",addr,sym->line,value->number);
-*/  
-        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+//add check for line not available
+       if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
             dr_fprintf(logF, "%s Line is not available\n", prefix);
         } else {
             dr_fprintf(logF, "Line number is  %s:%"UINT64_FORMAT_CODE" %d\n",
@@ -1084,26 +990,6 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	const char * r2Name = get_register_name(r2);
 	int s1        = atoi(r1Name + 3 * sizeof(char));
 	int s2        = atoi(r2Name + 3 * sizeof(char));
-/////////////
-/*
-	int error;
-	data_struct_t* value;
-	value = malloc(sizeof(data_struct_t));
-	error = hashmap_get(mymap, addr, (void**)(&value));
-	if(error == MAP_MISSING){
-		free(value);
-		value = malloc(sizeof(data_struct_t));
-		addr_arr[size_arr] = addr;
-		size_arr++;
-		value->number = 0;
-	}
-	value->key = addr;        
-	value->number++;
-        error = hashmap_put(mymap, addr, value);
-        if(error!=MAP_OK){printf("Error\n");}
-*/
-////////////////////
-
 	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
    	mcontext.flags = DR_MC_MULTIMEDIA;
@@ -1190,40 +1076,6 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 	int r, s;
    	const char * destRegName = get_register_name(destReg);
    	int regId = atoi(destRegName + 3 * sizeof(char));
-/*	
-	int error;
-	data_struct_t* value;
-	value = malloc(sizeof(data_struct_t));
-	error = hashmap_get(mymap, addr, (void**)(&value));
-	if(error == MAP_MISSING){
-		free(value);
-		value = malloc(sizeof(data_struct_t));
-		addr_arr[size_arr] = addr;
-		size_arr++;
-		value->number = 0;
-	}
-	value->key = addr;        
-	value->number++;
-        error = hashmap_put(mymap, value->key, value);
-        if(error!=MAP_OK){printf("Error\n");}
-
-*/
-//////////////////
-
-
-/*
-        int value = (int*)hashtable_lookup(&fpTable,&addr);
-	if(value == NULL){
-		value = 1;
-        	hashtable_add(&fpTable, &addr, value);
-		drvector_append(&addrTable, &addr);
-	}
-	else{
-		value++;
-        	hashtable_add_replace(&fpTable, &addr, value);
-	}
-*/
-
    	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
    	mcontext.flags = DR_MC_ALL;
