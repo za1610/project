@@ -666,14 +666,14 @@ int hashmap_it(map_t in, PFany f) {
 
 
 int printAddr(any_t t1, inner_hash_entry* entry){
-	printf("addr %d line %d\n", entry->line_number, 10);
+//	printf("addr %d line %d\n", entry->line_number, 10);
         dr_fprintf(logOut, ""PIFX" %d %d\n",entry->addr,entry->line_number,entry->call_count);
 return 0;
 }
 
 
 void printFunction(char* key, outer_hash_entry* entry){
-	printf("function name is %s and file %s\n", key, entry->file);
+//	printf("function name is %s and file %s\n", key, entry->file);
 	dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
 	hashmap_it(entry->mapAddrs, &printAddr);
 }
