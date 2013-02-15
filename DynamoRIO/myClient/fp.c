@@ -1009,12 +1009,12 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
        		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 		int exp1, exp2;
 		float mant1, mant2;
-		/*mant1 = frexpf(op1, &exp1);
+		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
+		
+/*		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
 		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
-		*/
 		//////adding zero case
 		struct FP* fp = (struct FP*)&op1;
 	        exp1 = fp->exponent - 127;
@@ -1023,6 +1023,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	        exp2 = fp->exponent - 127;
 		mant2 = fp->mantissa;
 		bits =abs(exp1-exp2);	
+*/	
 		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
 		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
 		int mask = 0;
@@ -1032,13 +1033,26 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 			mask = mask | 1;
 		}
 		printf("mask value in hex %x\n", mask);
-		if(exp1 < exp2){
-
+		
+		unsigned int expmask = 4286578688;
+		unsigned int totalmask = expmask | mask;
+		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
+		if(exp1>exp2){
+			int intop2 = *(int*)&op2;
+			printf("op2 in hex %x\n", intop2);
+			int bin = intop2 & totalmask;
+			printf("lost in binary %x\n", bin);
+			float lostbits = *(float*)&bin;
+			printf("lost bits are %f\n", lostbits);
 		}
 		else{
-
+			int intop2 = *(int*)&op1;
+			printf("op2 in hex %x\n", intop2);
+			int bin = intop2 & totalmask;
+			printf("lost in binary %x\n", bin);
+			float lostbits = *(float*)&bin;
+			printf("lost bits are %f\n", lostbits);
 		}
-
 
 	}
 	else{
@@ -1117,19 +1131,36 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
    		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 		int exp1, exp2;
+/*		double d1 = 10.123;
+		double d2 = 0.123;
+		double d = d1+d2;
+		float f1 = 10.123;
+		float f2 = 0.123;
+		float f = f1+f2;
+		long int di = *(long int*)&d1;
+		int fi = *(int*)&f;
+		
+		printf("double %lf %x %d float %f %x %d\n", d,di,sizeof(long int), f, fi,  sizeof(float));
+		double r = f-d;
+		printf("result is %lf\n", r);
+*/
 		float mant1, mant2;
-		/*mant1 = frexpf(op1, &exp1);
+		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
+			loss = 0;
+		
 		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);*/
+		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
 		struct FP* fp = (struct FP*)&op1;
 	        exp1 = fp->exponent - 127;	
-		mant1 = fp->mantissa;
+		mant1 = (fp->mantissa | 0x800000)/powf(2, 24);
+		//mant1 = *(float*)&temp;	
 		fp = (struct FP*)&op2;
 	        exp2 = fp->exponent - 127;
-		mant2 = fp->mantissa;
+		mant2 =( fp->mantissa | 0x800000)/powf(2, 24);
 		bits =abs(exp1-exp2);	
+	
 		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
 		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
 		unsigned int mask = 0;
