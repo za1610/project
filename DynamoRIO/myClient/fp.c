@@ -630,9 +630,17 @@ typedef struct
     int line_number;
     int call_count;
     int no_bits;
-    double loss;     
+    double loss;  
+    drvector_t lost_bits_vec;
  
 } inner_hash_entry;
+
+ typedef struct
+{
+    int bits;
+    double value;  
+ 
+} vector_entry;
  
 void htinit(){
  	functionmap = newHashmap(10);	
@@ -666,8 +674,17 @@ int hashmap_it(map_t in, PFany f) {
 
 
 int printAddr(any_t t1, inner_hash_entry* entry){
-//	printf("addr %d line %d\n", entry->line_number, 10);
-        dr_fprintf(logOut, ""PIFX" %d %d\n",entry->addr,entry->line_number,entry->call_count);
+	int i;
+	vector_entry* ve;
+	int num_of_bits = 0;
+	double loss = 0;
+	for(i = 0; i < entry->call_count; i++){
+		ve =  drvector_get_entry(&entry->lost_bits_vec, i);
+		num_of_bits += ve->bits;
+		loss += ve->value;
+		printf("drvector bits %d %x %d %.13lf\n",i, entry->addr, ve->bits, ve->value); 
+	}
+        dr_fprintf(logOut, ""PIFX" %d %lf %d %.13lf\n",entry->addr,entry->line_number,(double)num_of_bits/entry->call_count,entry->no_bits,loss/entry->call_count);
 return 0;
 }
 
@@ -879,27 +896,40 @@ print_address(app_pc addr, int bits, double loss)
 		snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
 		snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
 		int error = hashmapSet(functionmap, value, value->function_name);
-		printf("Inserted success %d\n", error);
+		printf("Inserted success %s %d\n", value->function_name, error);
 	}
 	value = hashmapGet(functionmap, key_string);
 	inner_hash_entry* inVal;
 	int error;
-	inVal = malloc(sizeof(inner_hash_entry));
+//	inVal = malloc(sizeof(inner_hash_entry));
 	error = hashmap_get(value->mapAddrs, addr, (void**)(&inVal));
 	if(error == MAP_MISSING){
 		printf("Map missing case\n");
-		free(inVal);
+		//free(inVal);
 		inVal = malloc(sizeof(inner_hash_entry));
 		addr_arr[size_arr] = addr;
 		size_arr++;
 		inVal->call_count = 0;
+		inVal->no_bits = 0;
 		inVal->line_number = sym->line;
+		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
+			printf("error in drvector_init bits for %s\n", key_string);	
+		}
+	
 	}
 
 	inVal->addr = addr;        
 	inVal->call_count++;
-	inVal->no_bits = bits;
+	if(inVal->no_bits < bits){
+		inVal->no_bits = bits;
+	}
 	inVal->loss = loss;
+	vector_entry* ve = malloc(sizeof(vector_entry));
+	ve->bits = bits;
+	ve->value = loss;
+	if(!drvector_append(&inVal->lost_bits_vec, ve)){
+		printf("couldn't add to bits vector\n");
+	}
         error = hashmap_put(value->mapAddrs, addr, inVal);
         if(error!=MAP_OK){printf("Error\n");}
 
@@ -964,9 +994,10 @@ writeCallgrind(int thread_id){
 
 
 bool is_SIMD_arithm(int opcode){
-	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_mulss || opcode == OP_mulsd ||
-	    opcode == OP_subss || opcode == OP_subsd || opcode == OP_divss || opcode == OP_divsd ||	
-	    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss);	
+	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_subss || opcode == OP_subsd 
+	//    || opcode == OP_mulss || opcode == OP_mulsd || opcode == OP_divss || opcode == OP_divsd ||	
+	//    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss
+	);	
 
 }
 
@@ -1012,20 +1043,21 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-		
-/*		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
-		//////adding zero case
+		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+
+
+/*		//////adding zero case
 		struct FP* fp = (struct FP*)&op1;
 	        exp1 = fp->exponent - 127;
 		mant1 = fp->mantissa;	
 		fp = (struct FP*)&op2;
 	        exp2 = fp->exponent - 127;
 		mant2 = fp->mantissa;
-		bits =abs(exp1-exp2);	
-*/	
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		bits =abs(exp1-exp2);		
+		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+*/
 		int mask = 0;
 		int ind = 0;
 		for(ind= 0; ind < bits; ind++){
@@ -1034,24 +1066,33 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 		}
 		printf("mask value in hex %x\n", mask);
 		
-		unsigned int expmask = 4286578688;
+		unsigned int expmask = 0xFF800000;
 		unsigned int totalmask = expmask | mask;
 		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
-		if(exp1>exp2){
+		if(exp2<exp1){
 			int intop2 = *(int*)&op2;
 			printf("op2 in hex %x\n", intop2);
-			int bin = intop2 & totalmask;
-			printf("lost in binary %x\n", bin);
-			float lostbits = *(float*)&bin;
-			printf("lost bits are %f\n", lostbits);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				loss = lostbits;
+				printf("lost bits are %f\n", lostbits);
+			}
 		}
-		else{
+		else if(exp1 > exp2){
 			int intop2 = *(int*)&op1;
 			printf("op2 in hex %x\n", intop2);
-			int bin = intop2 & totalmask;
-			printf("lost in binary %x\n", bin);
-			float lostbits = *(float*)&bin;
-			printf("lost bits are %f\n", lostbits);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				loss = lostbits;
+				printf("lost bits are %f\n", lostbits);
+			}
+		}
+		else{
+			loss = 0;
 		}
 
 	}
@@ -1063,15 +1104,15 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 //					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[s1].u64[0]);
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
-       		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
+       		dr_fprintf(logF, "%d: %.13lf  %.13lf\n",opcode, op1, op2);
 		int exp1, exp2;
 		double mant1, mant2;
-		/*mant1 = frexp(op1, &exp1);
+		mant1 = frexp(op1, &exp1);
 		mant2 = frexp(op2, &exp2);
 		bits = abs(exp1-exp2);
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
-		*/
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		/*
 		struct DP* dp = (struct DP*)&op1;
 	        exp1 = dp->exponent - 1023;	
 		mant1 = dp->mantissa;
@@ -1079,8 +1120,9 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	        exp2 = dp->exponent - 1023;
 		mant2 = dp->mantissa;
 		bits =abs(exp1-exp2);
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		*/
 	}
 	print_address(addr, bits, loss);
 }
@@ -1140,18 +1182,20 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		long int di = *(long int*)&d1;
 		int fi = *(int*)&f;
 		
-		printf("double %lf %x %d float %f %x %d\n", d,di,sizeof(long int), f, fi,  sizeof(float));
+		printf("double %.13lf %x %d float %f %x %d\n", d,di,sizeof(long int), f, fi,  sizeof(float));
 		double r = f-d;
-		printf("result is %lf\n", r);
+		printf("result is %.13lf\n", r);
 */
 		float mant1, mant2;
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
 			loss = 0;
+		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
 		
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+
+		/*
 		struct FP* fp = (struct FP*)&op1;
 	        exp1 = fp->exponent - 127;	
 		mant1 = (fp->mantissa | 0x800000)/powf(2, 24);
@@ -1160,9 +1204,9 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 	        exp2 = fp->exponent - 127;
 		mant2 =( fp->mantissa | 0x800000)/powf(2, 24);
 		bits =abs(exp1-exp2);	
-	
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
+		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+		*/
 		unsigned int mask = 0;
 		int ind = 0;
 		for(ind= 0; ind < bits; ind++){
@@ -1170,45 +1214,55 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 			mask = mask | 1;
 		
 		}
-		unsigned int expmask = 4286578688;
+		unsigned int expmask = 0xFF800000;
 		unsigned int totalmask = expmask | mask;
 		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
 		if(exp1>exp2){
 			int intop2 = *(int*)&op2;
 			printf("op2 in hex %x\n", intop2);
-			int bin = intop2 & totalmask;
-			printf("lost in binary %x\n", bin);
-			float lostbits = *(float*)&bin;
-			printf("lost bits are %f\n", lostbits);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				printf("lost bits are %f\n", lostbits);
+				loss = lostbits;
+			}
 		}
-		else{
+		else if(exp1 < exp2){
 			int intop2 = *(int*)&op1;
 			printf("op2 in hex %x\n", intop2);
-			int bin = intop2 & totalmask;
-			printf("lost in binary %x\n", bin);
-			float lostbits = *(float*)&bin;
-			printf("lost bits are %f\n", lostbits);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				loss = lostbits;
+				printf("lost bits are %f\n", lostbits);
+			}
+		}
+		else{
+			loss = 0;
 		}
 
 	}
 	else{
 		double op1, op2;
-   		printf("Mem reg contents: %lf\n", *(double*)(mem_reg + displacement));
+   		printf("Mem reg contents: %.13lf\n", *(double*)(mem_reg + displacement));
    		op2 = *(double*)(mem_reg + displacement);
 //		for(r=0; r<16; ++r)
  //   			for(s=0; s<2; ++s)
 //	     			printf("reg %i.%i: %lf\n", r, s, 
 //					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[regId].u64[0]);
-   		dr_fprintf(logF, "%d: %lf  %lf\n",opcode, op1, op2);
+   		dr_fprintf(logF, "%d: %.13lf  %.13lf\n",opcode, op1, op2);
 		int exp1, exp2;
 		double mant1, mant2;
-		/*mant1 = frexp(op1, &exp1);
+		mant1 = frexp(op1, &exp1);
 		mant2 = frexp(op2, &exp2);
 		bits = abs(exp1-exp2);
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
-		*/
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		
+		/*
 		struct DP* dp = (struct DP*)&op1;
 	        exp1 = dp->exponent - 1023;	
 		mant1 = dp->mantissa;
@@ -1216,9 +1270,9 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 	        exp2 = dp->exponent - 1023;
 		mant2 = dp->mantissa;
 		bits =abs(exp1-exp2);	
-		printf("op1 %g mantissa %g exp %d\n", op1, mant1, exp1);
-		printf("op2 %g mantissa %g exp %d\n", op2, mant2, exp2);
-	
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		*/
 	}
 	print_address(addr, bits, loss);
 }
