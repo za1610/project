@@ -639,7 +639,7 @@ typedef struct
 {
     int bits;
     double value;  
- 
+    double dvalue; 
 } vector_entry;
  
 void htinit(){
@@ -681,10 +681,10 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 	for(i = 0; i < entry->call_count; i++){
 		ve =  drvector_get_entry(&entry->lost_bits_vec, i);
 		num_of_bits += ve->bits;
-		loss += ve->value;
-		printf("drvector bits %d %x %d %.13lf\n",i, entry->addr, ve->bits, ve->value); 
+		loss += ve->dvalue;
+		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, ve->dvalue); 
 	}
-        dr_fprintf(logOut, ""PIFX" %d %lf %d %.13lf\n",entry->addr,entry->line_number,(double)num_of_bits/entry->call_count,entry->no_bits,loss/entry->call_count);
+        dr_fprintf(logOut, ""PIFX" %d %.3lf %d \n",entry->addr,entry->line_number,(double)num_of_bits/entry->call_count,entry->no_bits,loss/entry->call_count);
 return 0;
 }
 
@@ -713,17 +713,6 @@ unsigned int sign: 1;
 
 void printht(){
 	hashmapProcess(functionmap,&printFunction);
-
-float x, y;
-int z;
-x = 10.123;
-y = frexpf(x, &z);
-printf("!!!!!!!!!!! %f %d\n", y, z);
-//int fl = *(int*)&x;
-//printf("hex rep %x\n", fl);
-struct FP* fp = (struct FP*)&x;
-printf("biased exponent %u mantissa = %u \n",fp->exponent, fp->mantissa);
-
 /*
 	outer_hash_entry* entry = hashmapGet(functionmap, "main");
 	inner_hash_entry* inVal;
@@ -849,7 +838,7 @@ writeLog(void* drcontext){
 
 
 static void
-print_address(app_pc addr, int bits, double loss)
+print_address(app_pc addr, int bits, double loss, double lossD)
 {
 
     const char* prefix = "PRINT ADDRESS: ";
@@ -923,10 +912,13 @@ print_address(app_pc addr, int bits, double loss)
 	if(inVal->no_bits < bits){
 		inVal->no_bits = bits;
 	}
-	inVal->loss = loss;
+	if(inVal->loss < loss){
+		inVal->loss = loss;
+	}
 	vector_entry* ve = malloc(sizeof(vector_entry));
 	ve->bits = bits;
 	ve->value = loss;
+	ve->dvalue = lossD;
 	if(!drvector_append(&inVal->lost_bits_vec, ve)){
 		printf("couldn't add to bits vector\n");
 	}
@@ -987,14 +979,15 @@ writeCallgrind(int thread_id){
        	dr_fprintf(logOut, "version: 1\n");
        	dr_fprintf(logOut, "creator: callgrind-3.6.1-Debian\n");
        	dr_fprintf(logOut, "positions: instr line\n");
-       	dr_fprintf(logOut, "events: Ir\n\n\n");
+       	dr_fprintf(logOut, "events: Average Max\n\n\n");
 
 }
 
 
 
 bool is_SIMD_arithm(int opcode){
-	return (opcode == OP_addss || opcode == OP_addsd || opcode == OP_subss || opcode == OP_subsd 
+	return (opcode == OP_addss || opcode == OP_subss
+//	|| opcode == OP_addsd ||  opcode == OP_subsd 
 	//    || opcode == OP_mulss || opcode == OP_mulsd || opcode == OP_divss || opcode == OP_divsd ||	
 	//    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss
 	);	
@@ -1029,6 +1022,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 	int r, s;
 	int bits = 0;
 	double loss = 0;
+	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
 		float op1, op2;
 //		for(r=0; r<16; ++r)
@@ -1077,7 +1071,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
 				loss = lostbits;
-				printf("lost bits are %f\n", lostbits);
+				printf("lost value is %.13f\n", lostbits);
 			}
 		}
 		else if(exp1 > exp2){
@@ -1088,13 +1082,28 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
 				loss = lostbits;
-				printf("lost bits are %f\n", lostbits);
+				printf("lost value is %.13f\n", lostbits);
 			}
 		}
 		else{
 			loss = 0;
 		}
 
+		double dop1 = op1;
+		double dop2 = op2;
+		if(opcode == OP_addss){
+			double dadd = dop1 + dop2;
+			float fadd = op1 + op2;
+			lossD = dadd - fadd;
+//		printf("double %.13lf float %.13f\n", dadd, fadd);
+		}
+		else{
+			double dsub = dop1 - dop2;
+			float fsub = op1 - op2;	
+			lossD = dsub - fsub;
+		}
+
+		printf("diff of double and float is %.13lf\n", lossD);
 	}
 	else{
 		double op1, op2;
@@ -1124,7 +1133,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
 		*/
 	}
-	print_address(addr, bits, loss);
+	print_address(addr, bits, loss, lossD);
 }
 
 static void
@@ -1162,6 +1171,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 
 	int bits = 0;
 	double loss = 0;
+	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
    		float op1, op2;
    		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
@@ -1224,7 +1234,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 				int bin = intop2 & totalmask;
 				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
-				printf("lost bits are %f\n", lostbits);
+				printf("lost value is %.13f\n", lostbits);
 				loss = lostbits;
 			}
 		}
@@ -1236,13 +1246,27 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
 				loss = lostbits;
-				printf("lost bits are %f\n", lostbits);
+				printf("lost value is %.13f\n", lostbits);
 			}
 		}
 		else{
 			loss = 0;
 		}
 
+		double dop1 = op1;
+		double dop2 = op2;
+		if(opcode == OP_addss){
+			double dadd = dop1 + dop2;
+			float fadd = op1 + op2;
+			lossD = dadd - fadd;
+		//printf("double %.13lf float %.13f\n", dadd, fadd);
+		}
+		else{
+			double dsub = dop1 - dop2;
+			float fsub = op1 - op2;	
+			lossD = dsub - fsub;
+		}
+		printf("diff of double and float is %.13lf\n", lossD);
 	}
 	else{
 		double op1, op2;
@@ -1274,7 +1298,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
 		*/
 	}
-	print_address(addr, bits, loss);
+	print_address(addr, bits, loss, lossD);
 }
 
 

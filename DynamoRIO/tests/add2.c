@@ -2,29 +2,54 @@
 #include <math.h>
 
 void addFloats(){
-float e = 0.00000006f;
-printf("e %.13f\n", e);
-float x = 0.5f;
-printf("x %.13f\n", x);
-float y = 1.0f + x;
-printf("y %.13f\n", y);
-float more = y + e;
-printf("more %.13f\n", more);
-int i;
-float diff_e;
-for(i = 0; i < 10; i++){
-	diff_e = more - y;
-	more = more + e;
-}
-printf("diff_e %.13f\n", diff_e);
-float diff_o;
-//for(i = 0; i < 10; i++)
+	float e = 0.00000006f;
+	printf("e %.13f\n", e);
+	float x = 0.5f;
+	printf("x %.13f\n", x);
+	float y = 1.0f + x;
+	printf("y %.13f\n", y);
+	int i;
+	float more;
+//	for(i = 0; i < 10; i++){
+		more = y + e;
+	//	e = e+e;
+		printf("more %.13f\n", more);
+//		printf("e %.13f\n", e);
+//	}
+	float diff_e;
+	for(i = 0; i < 10; i++){
+		diff_e = more - y;
+		more = more + e;
+	}
+	printf("diff_e %.13f\n", diff_e);
+	float diff_o;
+
 	diff_o = diff_e - e;
-printf("diff_o %.13f\n", diff_o);
-float zero = diff_o + diff_o;
-printf("zero %.13f\n", zero);
-float result = 2 * zero;
-printf("result %.13f\n", result);
+	printf("diff_o %.13f\n", diff_o);
+	double dd = diff_e;
+	printf("\n\ndd %.15lf\n",dd );
+	double de = e;
+	printf("de %.15lf\n",de );
+	double res = dd - de;
+	double r = res - diff_o;
+	printf("diff in double %.15lf\n", res);
+	printf("diff of float and double %.15lf\n", r);
+
+
+		int exp1, exp2, bits;
+                double mant1, mant2;
+                mant1 = frexp(dd, &exp1);
+                mant2 = frexp(de, &exp2);
+                bits = abs(exp1-exp2);
+                printf("op1 %.13lf mantissa %.13lf exp %d\n", dd, mant1, exp1);
+                printf("op2 %.13lf mantissa %.13lf exp %d\n", de, mant2, exp2);
+
+
+
+	float zero = diff_o + diff_o;
+	printf("zero %.13f\n", zero);
+	float result = 2 * zero;
+	printf("result %.13f\n", result);
 
 }
 /*
