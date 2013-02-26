@@ -362,8 +362,6 @@ typedef void(*fHashmapProc)(const char* key, const void* datum);
 #define INITIAL_SIZE 10
 //#define MAX_CHAIN_LENGTH (8)
 
-static int addr_arr[10];
-static int size_arr;
 
 #define MAP_MISSING -3  /* No such element */
 #define MAP_FULL -2 	/* Hashmap is full */
@@ -673,6 +671,8 @@ int hashmap_it(map_t in, PFany f) {
 }
 
 
+#define round(x) ((x)>=0?(long)((x)+0.5):(long)((x)-0.5))
+
 int printAddr(any_t t1, inner_hash_entry* entry){
 	int i;
 	vector_entry* ve;
@@ -684,7 +684,20 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 		loss += ve->dvalue;
 		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, ve->dvalue); 
 	}
-        dr_fprintf(logOut, ""PIFX" %d %.3lf %d \n",entry->addr,entry->line_number,(double)num_of_bits/entry->call_count,entry->no_bits,loss/entry->call_count);
+	double mean = (double)loss/entry->call_count;
+	double sumup = 0;
+	double sumdown = 0;        
+	for(i = 0; i < entry->call_count; i++){
+          ve =  drvector_get_entry(&entry->lost_bits_vec, i);
+	  sumup += (ve->dvalue - mean)*(ve->dvalue - mean)*(ve->dvalue - mean);	
+	  sumdown += (ve->dvalue - mean)*(ve->dvalue - mean);
+	}
+	double nsqrt = sqrt((double)entry->call_count);
+	sumdown = sqrt(sumdown*sumdown*sumdown);
+	double skewness = nsqrt* ((double)sumup/sumdown);
+
+	dr_fprintf(logOut, ""PIFX" %d %ld %d skewness %.13lf mean %.13lf\n",entry->addr,entry->line_number,
+				round((double)num_of_bits/entry->call_count),entry->no_bits, skewness, mean);
 return 0;
 }
 
@@ -760,7 +773,6 @@ static void writeLog(void* drcontext);
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-size_arr = 0;
 
     dr_register_exit_event(exit_event);
     dr_register_bb_event(bb_event);
@@ -885,7 +897,7 @@ print_address(app_pc addr, int bits, double loss, double lossD)
 		snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
 		snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
 		int error = hashmapSet(functionmap, value, value->function_name);
-		printf("Inserted success %s %d\n", value->function_name, error);
+	//	printf("Inserted success %s %d\n", value->function_name, error);
 	}
 	value = hashmapGet(functionmap, key_string);
 	inner_hash_entry* inVal;
@@ -893,18 +905,15 @@ print_address(app_pc addr, int bits, double loss, double lossD)
 //	inVal = malloc(sizeof(inner_hash_entry));
 	error = hashmap_get(value->mapAddrs, addr, (void**)(&inVal));
 	if(error == MAP_MISSING){
-		printf("Map missing case\n");
+//		printf("Map missing case\n");
 		//free(inVal);
 		inVal = malloc(sizeof(inner_hash_entry));
-		addr_arr[size_arr] = addr;
-		size_arr++;
 		inVal->call_count = 0;
 		inVal->no_bits = 0;
 		inVal->line_number = sym->line;
 		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
 			printf("error in drvector_init bits for %s\n", key_string);	
 		}
-	
 	}
 
 	inVal->addr = addr;        
@@ -930,7 +939,6 @@ print_address(app_pc addr, int bits, double loss, double lossD)
 		printf("Error, didn't insert\n");
 
 	}
-
 
 //add check for line not available
        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
@@ -1037,8 +1045,8 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
-		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+//		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+//		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
 
 
 /*		//////adding zero case
@@ -1058,31 +1066,31 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 			mask = mask << 1;
 			mask = mask | 1;
 		}
-		printf("mask value in hex %x\n", mask);
+//		printf("mask value in hex %x\n", mask);
 		
 		unsigned int expmask = 0xFF800000;
 		unsigned int totalmask = expmask | mask;
-		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
+//		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
 		if(exp2<exp1){
 			int intop2 = *(int*)&op2;
-			printf("op2 in hex %x\n", intop2);
+//			printf("op2 in hex %x\n", intop2);
 			if(intop2 & mask != 0){
 				int bin = intop2 & totalmask;
-				printf("lost in binary %x\n", bin);
+//				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
 				loss = lostbits;
-				printf("lost value is %.13f\n", lostbits);
+//				printf("lost value is %.13f\n", lostbits);
 			}
 		}
 		else if(exp1 > exp2){
 			int intop2 = *(int*)&op1;
-			printf("op2 in hex %x\n", intop2);
+//			printf("op2 in hex %x\n", intop2);
 			if(intop2 & mask != 0){
 				int bin = intop2 & totalmask;
-				printf("lost in binary %x\n", bin);
+//				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
 				loss = lostbits;
-				printf("lost value is %.13f\n", lostbits);
+//				printf("lost value is %.13f\n", lostbits);
 			}
 		}
 		else{
@@ -1103,7 +1111,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 			lossD = dsub - fsub;
 		}
 
-		printf("diff of double and float is %.13lf\n", lossD);
+//		printf("diff of double and float is %.13lf\n", lossD);
 	}
 	else{
 		double op1, op2;
@@ -1146,7 +1154,6 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
    	mcontext.flags = DR_MC_ALL;
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-	printf("displacement is %d\n", displacement);
 
 	reg_t mem_reg;
 	if(reg == DR_REG_RAX)
@@ -1174,7 +1181,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
    		float op1, op2;
-   		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
+//   		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
    		op2 = *(float*)(mem_reg + displacement);
 //		for(r=0; r<16; ++r)
 //			for(s=0; s<4; ++s)
@@ -1201,8 +1208,8 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
 			loss = 0;
-		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
-		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+//		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+//		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
 		
 
 		/*
@@ -1226,27 +1233,27 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 		}
 		unsigned int expmask = 0xFF800000;
 		unsigned int totalmask = expmask | mask;
-		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
+//		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
 		if(exp1>exp2){
 			int intop2 = *(int*)&op2;
-			printf("op2 in hex %x\n", intop2);
+//			printf("op2 in hex %x\n", intop2);
 			if(intop2 & mask != 0){
 				int bin = intop2 & totalmask;
-				printf("lost in binary %x\n", bin);
+//				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
-				printf("lost value is %.13f\n", lostbits);
+//				printf("lost value is %.13f\n", lostbits);
 				loss = lostbits;
 			}
 		}
 		else if(exp1 < exp2){
 			int intop2 = *(int*)&op1;
-			printf("op2 in hex %x\n", intop2);
+//			printf("op2 in hex %x\n", intop2);
 			if(intop2 & mask != 0){
 				int bin = intop2 & totalmask;
-				printf("lost in binary %x\n", bin);
+//				printf("lost in binary %x\n", bin);
 				float lostbits = *(float*)&bin;
 				loss = lostbits;
-				printf("lost value is %.13f\n", lostbits);
+//				printf("lost value is %.13f\n", lostbits);
 			}
 		}
 		else{
@@ -1266,7 +1273,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 			float fsub = op1 - op2;	
 			lossD = dsub - fsub;
 		}
-		printf("diff of double and float is %.13lf\n", lossD);
+//		printf("diff of double and float is %.13lf\n", lossD);
 	}
 	else{
 		double op1, op2;
