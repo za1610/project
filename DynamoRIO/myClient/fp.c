@@ -681,20 +681,22 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 	for(i = 0; i < entry->call_count; i++){
 		ve =  drvector_get_entry(&entry->lost_bits_vec, i);
 		num_of_bits += ve->bits;
-		loss += ve->dvalue;
-		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, ve->dvalue); 
+		loss += fabs(ve->dvalue);
+		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, fabs(ve->dvalue)); 
 	}
 	double mean = (double)loss/entry->call_count;
 	double sumup = 0;
 	double sumdown = 0;        
 	for(i = 0; i < entry->call_count; i++){
           ve =  drvector_get_entry(&entry->lost_bits_vec, i);
-	  sumup += (ve->dvalue - mean)*(ve->dvalue - mean)*(ve->dvalue - mean);	
-	  sumdown += (ve->dvalue - mean)*(ve->dvalue - mean);
+	  sumup += (fabs(ve->dvalue) - mean)*(fabs(ve->dvalue) - mean)*(fabs(ve->dvalue) - mean);	
+	  sumdown += (fabs(ve->dvalue) - mean)*(fabs(ve->dvalue) - mean);
 	}
 	double nsqrt = sqrt((double)entry->call_count);
 	sumdown = sqrt(sumdown*sumdown*sumdown);
-	double skewness = nsqrt* ((double)sumup/sumdown);
+	double skewness = 0;
+	if(sumdown != 0)
+		skewness = nsqrt* ((double)sumup/sumdown);
 
 	dr_fprintf(logOut, ""PIFX" %d %ld %d skewness %.13lf mean %.13lf\n",entry->addr,entry->line_number,
 				round((double)num_of_bits/entry->call_count),entry->no_bits, skewness, mean);
