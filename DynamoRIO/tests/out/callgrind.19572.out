@@ -1,0 +1,35 @@
+version: 1
+creator: callgrind-3.6.1-Debian
+positions: instr line
+events: Average Max
+
+
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=DoTheSummation
+0x400bbb 128 0 0 skewness 0.0000000000000 mean 0.0000000000000
+0x400b6a 128 0 0 skewness 0.0000000000000 mean 0.0000000000000
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=fsumDown
+0x40080e 59 7 16 skewness 1.2158039415669 mean 0.0000010220468
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=fsumRecursive
+0x400a85 112 2 13 skewness 26.4152841720109 mean 0.0000000147179
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=fsumUp
+0x4007b8 50 5 16 skewness 1.6407870392178 mean 0.0000003672659
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=kahan_summationDown
+0x4009be 101 0 3 skewness 0.0000000000000 mean 0.0000000000000
+0x4009a0 99 18 23 skewness 0.0000000000000 mean 0.0000000000000
+0x4009af 100 7 16 skewness 1.2387785624017 mean 0.0000010190785
+0x4009c3 101 0 1 skewness 0.0000000000000 mean 0.0000000000000
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=kahan_summationUp
+0x40092c 88 5 16 skewness 1.6723745589355 mean 0.0000003703117
+0x40093b 89 0 8 skewness 0.0000000000000 mean 0.0000000000000
+0x40091d 87 18 23 skewness 0.0000000000000 mean 0.0000000000000
+0x400940 89 0 1 skewness 0.0000000000000 mean 0.0000000000000
+fl=/homes/za1610/indProject/DynamoRIO/tests/main.c
+fn=rand_FloatRange
+0x400652 19 1 15 skewness 2.3296082267054 mean 0.0000000035424
+0x40062e 19 0 0 skewness 0.0000000000000 mean 0.0000000000000

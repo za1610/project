@@ -682,7 +682,7 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 		ve =  drvector_get_entry(&entry->lost_bits_vec, i);
 		num_of_bits += ve->bits;
 		loss += fabs(ve->dvalue);
-		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, fabs(ve->dvalue)); 
+//		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, fabs(ve->dvalue)); 
 	}
 	double mean = (double)loss/entry->call_count;
 	double sumup = 0;
@@ -862,7 +862,7 @@ print_address(app_pc addr, int bits, double loss, double lossD)
     module_data_t *data;
     data = dr_lookup_module(addr);
     if (data == NULL) {
-        dr_fprintf(logF, "%s data is null "PFX" \n", prefix, addr);
+       // dr_fprintf(logF, "%s data is null "PFX" \n", prefix, addr);
         return;
     }
     snprintf(process_path, MAXIMUM_PATH,"%s",data->full_path);
@@ -885,8 +885,8 @@ print_address(app_pc addr, int bits, double loss, double lossD)
         const char *modname = dr_module_preferred_name(data);
         if (modname == NULL)
             modname = "<noname>";
-        dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX", line off "PFX" \n", prefix, addr,
-                   modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
+        //dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX", line off "PFX" \n", prefix, addr,
+                   //modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
 
 
 	char key_string[KEY_MAX_LENGTH];
@@ -944,13 +944,13 @@ print_address(app_pc addr, int bits, double loss, double lossD)
 
 //add check for line not available
        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-            dr_fprintf(logF, "%s Line is not available\n", prefix);
+           // dr_fprintf(logF, "%s Line is not available\n", prefix);
         } else {
-            dr_fprintf(logF, "Line number is  %s:%"UINT64_FORMAT_CODE" %d\n",
-                       sym->file, sym->line, sym->line_offs);
+           // dr_fprintf(logF, "Line number is  %s:%"UINT64_FORMAT_CODE" %d\n",
+                      // sym->file, sym->line, sym->line_offs);
         }
     } else
-        dr_fprintf(logF, "%s some error "PFX" \n", prefix, addr);
+      //  dr_fprintf(logF, "%s some error "PFX" \n", prefix, addr);
   
     dr_free_module_data(data);
 }
@@ -1041,7 +1041,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 //					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[s1].u32[0]);
 		op2 = *((float*) &mcontext.ymm[s2].u32[0]);
-       		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+       //		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 		int exp1, exp2;
 		float mant1, mant2;
 		mant1 = frexpf(op1, &exp1);
@@ -1123,7 +1123,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 //					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[s1].u64[0]);
 		op2 = *((double*) &mcontext.ymm[s2].u64[0]);
-       		dr_fprintf(logF, "%d: %.13lf  %.13lf\n",opcode, op1, op2);
+      // 		dr_fprintf(logF, "%d: %.13lf  %.13lf\n",opcode, op1, op2);
 		int exp1, exp2;
 		double mant1, mant2;
 		mant1 = frexp(op1, &exp1);
@@ -1190,7 +1190,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 //		     		printf("reg %i.%i: %f\n", r, s, 
 //					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
-   		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+  // 		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 		int exp1, exp2;
 /*		double d1 = 10.123;
 		double d2 = 0.123;
@@ -1286,7 +1286,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc ad
 //	     			printf("reg %i.%i: %lf\n", r, s, 
 //					*((double*) &mcontext.ymm[r].u64[s]));
 		op1 = *((double*) &mcontext.ymm[regId].u64[0]);
-   		dr_fprintf(logF, "%d: %.13lf  %.13lf\n",opcode, op1, op2);
+  // 		dr_fprintf(logF, "%d: %.13lf  %.13lf\n",opcode, op1, op2);
 		int exp1, exp2;
 		double mant1, mant2;
 		mant1 = frexp(op1, &exp1);
@@ -1322,11 +1322,11 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
 	if(instr_is_floating(instr)){
-   		dr_fprintf(logF, "Has seen FPU instruction with opcode %d\n",opcode);
+   	//	dr_fprintf(logF, "Has seen FPU instruction with opcode %d\n",opcode);
 	
 	}
 	else if(is_SIMD_packed(opcode)){
-   		dr_fprintf(logF, "Has seen SIMD packed instruction with opcode %d\n",opcode);
+   	//	dr_fprintf(logF, "Has seen SIMD packed instruction with opcode %d\n",opcode);
 	}
 //AVX?rcpps?
 
