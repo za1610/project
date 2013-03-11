@@ -628,18 +628,18 @@ typedef struct
     int line_number;
     int call_count;
     int no_bits;
-    double loss;  
-    drvector_t lost_bits_vec;
+//    double loss;  
+//    drvector_t lost_bits_vec;
  
 } inner_hash_entry;
-
+/*
  typedef struct
 {
     int bits;
 //    double value;  
     double dvalue; 
 } vector_entry;
- 
+ */
 void htinit(){
  	functionmap = newHashmap(10);	
 }
@@ -675,9 +675,10 @@ int hashmap_it(map_t in, PFany f) {
 
 int printAddr(any_t t1, inner_hash_entry* entry){
 	int i;
-	vector_entry* ve;
+//	vector_entry* ve;
 	int num_of_bits = 0;
 	double loss = 0;
+/*
 	for(i = 0; i < entry->call_count; i++){
 		ve =  drvector_get_entry(&entry->lost_bits_vec, i);
 		num_of_bits += ve->bits;
@@ -697,9 +698,11 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 	double skewness = 0;
 	if(sumdown != 0)
 		skewness = nsqrt* ((double)sumup/sumdown);
+*/
+	dr_fprintf(logOut, ""PIFX" %d %ld \n",entry->addr,entry->line_number,
+				round((double)entry->no_bits/entry->call_count));
+			free(entry);
 
-	dr_fprintf(logOut, ""PIFX" %d %ld %d skewness %.13lf mean %.13lf\n",entry->addr,entry->line_number,
-				round((double)num_of_bits/entry->call_count),entry->no_bits, skewness, mean);
 return 0;
 }
 
@@ -708,6 +711,7 @@ void printFunction(char* key, outer_hash_entry* entry){
 //	printf("function name is %s and file %s\n", key, entry->file);
 	dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
 	hashmap_it(entry->mapAddrs, &printAddr);
+	free(entry);
 }
 
 //////////////HASHTABLE end
@@ -915,29 +919,28 @@ print_address(app_pc addr, int bits, double loss, double lossD)
 		inVal->call_count = 0;
 		inVal->no_bits = 0;
 		inVal->line_number = sym->line;
-		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
-			printf("error in drvector_init bits for %s\n", key_string);	
-		}
+//		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
+//			printf("error in drvector_init bits for %s\n", key_string);	
+//		}
 	}
 	inVal->addr = addr;        
 	inVal->call_count++;
 	printf("Inserting for %x with error code %d and count %d\n", addr, error, 	inVal->call_count);
-	if(inVal->no_bits < bits){
-		inVal->no_bits = bits;
-	}
-	if(inVal->loss < loss){
-		inVal->loss = loss;
-	}
-	vector_entry* ve = malloc(sizeof(vector_entry));
-	ve->bits = bits;
+//	if(inVal->no_bits < bits){
+		inVal->no_bits += bits;
+//	}
+//	if(inVal->loss < loss){
+//		inVal->loss += loss;
+//	}
+//	vector_entry* ve = malloc(sizeof(vector_entry));
+//	ve->bits = bits;
 	//ve->value = loss;
-	ve->dvalue = lossD;
-	if(!drvector_append(&inVal->lost_bits_vec, ve)){
-		printf("couldn't add to bits vector\n");
-	}
+//	ve->dvalue = lossD;
+//	if(!drvector_append(&inVal->lost_bits_vec, ve)){
+//		printf("couldn't add to bits vector\n");
+//	}
         error = hashmap_put(value->mapAddrs, addr, inVal);
         if(error != MAP_OK){printf("Error %d\n", error);}
-
 
 	if(hashmapGet(functionmap, key_string) == 0){
 		printf("Error, didn't insert\n");

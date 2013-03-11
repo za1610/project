@@ -1,4 +1,0 @@
-kcachegrind format
-floating point unit instrs
-calculating precision loss
-interim report
