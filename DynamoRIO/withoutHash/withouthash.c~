@@ -103,7 +103,7 @@ static int testcount = 0;
  
 void htinit(){
 // 	functionmap = newHashmap(10);
-	testarr = malloc(17000000*sizeof(double));	
+	testarr = __wrap_malloc(17000000*sizeof(double));	
 }
 
 
@@ -234,7 +234,7 @@ exit_event(void)
     }
 #endif
 printht();
-
+__wrap_free(testarr);
 
 }
 
@@ -468,7 +468,7 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-/
+
 		double dop1 = op1;
 		double dop2 = op2;
 

@@ -33,7 +33,7 @@
 
 #include "../ext/include/drsyms.h"
 #include "../ext/include/hashtable.h"
-#include "../ext/include/drvector.h"
+//#include "../ext/include/drvector.h"
 
 #include <stdlib.h>
 #include <stdio.h>
