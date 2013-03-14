@@ -274,6 +274,11 @@ writeLog(void* drcontext){
 static void
 print_address(app_pc addr, int bits, double loss, double lossD)
 {
+	testarr[testcount] = lossD;
+	testcount++;
+	char key_string[KEY_MAX_LENGTH];
+	snprintf(key_string, KEY_MAX_LENGTH, "%s", "main");//sym->name);
+
 
     const char* prefix = "PRINT ADDRESS: ";
     drsym_error_t symres;
@@ -299,7 +304,7 @@ print_address(app_pc addr, int bits, double loss, double lossD)
 
     symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
                            DRSYM_DEFAULT_FLAGS);
-
+/*
 
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         const char *modname = dr_module_preferred_name(data);
@@ -309,59 +314,7 @@ print_address(app_pc addr, int bits, double loss, double lossD)
                    //modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
 
 
-	char key_string[KEY_MAX_LENGTH];
-	snprintf(key_string, KEY_MAX_LENGTH, "%s", sym->name);
-
-/*	outer_hash_entry* value;
-	if(hashmapGet(functionmap, key_string) == 0){
-		value = malloc(sizeof(outer_hash_entry));
-		value->mapAddrs = hashmap_new();
-		snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
-		snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
-		int error = hashmapSet(functionmap, value, value->function_name);
-		printf("Inserted success %s %d\n", value->function_name, error);
-	}
-*/
-	testarr[testcount] = lossD;
-	testcount++;
-	printf("test ins %d\n", testcount);
-//	value = hashmapGet(functionmap, key_string);
-/*	inner_hash_entry* inVal;
-	int error;
-//	inVal = malloc(sizeof(inner_hash_entry));
-	error = hashmap_get(value->mapAddrs, addr, (void**)(&inVal));
-	if(error == MAP_MISSING){
-//		printf("Map missing case %x\n", addr);
-		//free(inVal);
-		inVal = malloc(sizeof(inner_hash_entry));
-		inVal->call_count = 0;
-		inVal->no_bits = 0;
-		inVal->line_number = sym->line;
-		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
-			printf("error in drvector_init bits for %s\n", key_string);	
-		}
-	}
-	inVal->addr = addr;        
-	inVal->call_count++;
-	printf("Inserting for %x with error code %d and count %d\n", addr, error, 	inVal->call_count);
-	if(inVal->no_bits < bits){
-		inVal->no_bits = bits;
-	}
-	if(inVal->loss < loss){
-		inVal->loss = loss;
-	}
-	vector_entry* ve = malloc(sizeof(vector_entry));
-	ve->bits = bits;
-	ve->value = loss;
-	ve->dvalue = lossD;
-	if(!drvector_append(&inVal->lost_bits_vec, ve)){
-		printf("couldn't add to bits vector\n");
-	}
-        error = hashmap_put(value->mapAddrs, addr, inVal);
-        if(error != MAP_OK){printf("Error %d\n", error);}
-*/
-
-	
+//printf("test ins %d\n", testcount);
 
 //add check for line not available
        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
@@ -372,7 +325,7 @@ print_address(app_pc addr, int bits, double loss, double lossD)
         }
     } else
       //  dr_fprintf(logF, "%s some error "PFX" \n", prefix, addr);
-  
+  */
     dr_free_module_data(data);
 }
 
