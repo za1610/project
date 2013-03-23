@@ -858,13 +858,15 @@ print_address(inner_hash_entry *inVal, int bits, double dRes, double lossD)
 		inVal->loss = lossD;
 	}
 //	printf("in print addr\n");
-//	vector_entry* ve = malloc(sizeof(vector_entry));
-//	ve->bits = bits;
-//	ve->dvalue = lossD;
-  //      ve->result = dRes;
-//	if(!drvector_append(&inVal->lost_bits_vec, ve)){
-//		printf("couldn't add to bits vector\n");
-//	}
+	vector_entry* ve = malloc(sizeof(vector_entry));
+	ve->bits = bits;
+	//ve->value = loss;
+//	printf("in print addr 2\n");
+	ve->dvalue = lossD;
+        ve->result = dRes;
+	if(!drvector_append(&inVal->lost_bits_vec, ve)){
+		printf("couldn't add to bits vector\n");
+	}
 //	}
 //	else{
 //		printf("Function for 0s "PIFX"\n", inVal->addr);
@@ -1130,6 +1132,8 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
 	
+	if(entry->addr == 0x403311)
+		printf("in callback 3 "PIFX" opcode %d %s\n", entry->addr, opcode, destRegName);
    		float op1, op2;
 //   		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
 
@@ -1139,11 +1143,15 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 		//			*((float*) &mcontext.ymm[r].u32[s]));
 
    		op2 = *(float*)(mem_reg + displacement);
+	if(entry->addr == 0x403311)
+		printf("in callback 7 "PIFX"\n", entry->addr);
 
 
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
   // 		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 		int exp1, exp2;
+	if(entry->addr == 0x403311)
+		printf("in callback 5 "PIFX"\n", entry->addr);
 
 
 		float mant1, mant2;
@@ -1151,6 +1159,8 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
 	
+	if(entry->addr == 0x403311)
+		printf("in callback 4 "PIFX"\n", entry->addr);
 
 		double dop1 = op1;
 		double dop2 = op2;

@@ -30,6 +30,7 @@
  */
 
 #include "dr_api.h"
+
 #include "../ext/include/drsyms.h"
 #include "../ext/include/hashtable.h"
 #include "../ext/include/drvector.h"
@@ -37,7 +38,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <string.h>
 
 # define MAX_SYM_RESULT 256
 
@@ -49,22 +49,6 @@
 
 #define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
 
-// Work-around for broken calloc
-
-void *fixed_calloc(const size_t nmemb, const size_t element_size)
-{
-  const size_t size = nmemb * element_size;
-  void *const data = malloc(size);
-
-  if (data == NULL)
-    return NULL;
-
-  memset(data, 0, size);
-  return data;
-}
-
-#define calloc fixed_calloc
-
 static dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
                                 bool for_trace, bool translating);
 static void exit_event(void);
@@ -74,6 +58,7 @@ file_t logOut;
 static int fp_count = 0;
 static void *count_mutex; /* for multithread support */
 static client_id_t client_id;
+static char process_path[MAXIMUM_PATH];
 static bool callgrind_log_created = false;
 static int thread_id_for_log = 0;
 
@@ -374,9 +359,7 @@ typedef void(*fHashmapProc)(const char* key, const void* datum);
 
 
 //////////////////////////////////HASHTABLE
-// Making this too large appears to cause things to crash.
-#define INITIAL_SIZE 100
-//#define INITIAL_SIZE 100000
+#define INITIAL_SIZE 100000
 //#define MAX_CHAIN_LENGTH (8)
 
 
@@ -643,7 +626,6 @@ typedef struct
 {
     int addr;  
     int line_number;
-    int line_offset;
     int call_count;
     int no_bits;
     double loss;  
@@ -654,13 +636,21 @@ typedef struct
  typedef struct
 {
     int bits;
-    double dvalue;
-    double result; 
+    double value;  
+    double dvalue; 
 } vector_entry;
+
+
+static double *testarr;
+static int testcount = 0;
+
+
  
 void htinit(){
- 	functionmap = newHashmap(10);	
+// 	functionmap = newHashmap(10);
+	testarr = malloc(17000000*sizeof(double));	
 }
+
 
 int hashmap_it(map_t in, PFany f) {
 	int i;
@@ -696,15 +686,12 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 	vector_entry* ve;
 	int num_of_bits = 0;
 	double loss = 0;
-	double resMean = 0;
 	for(i = 0; i < entry->call_count; i++){
 		ve =  drvector_get_entry(&entry->lost_bits_vec, i);
 		num_of_bits += ve->bits;
 		loss += fabs(ve->dvalue);
-		resMean += fabs(ve->result);
 //		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, fabs(ve->dvalue)); 
 	}
-	resMean = (double)resMean/entry->call_count;
 	double mean = (double)loss/entry->call_count;
 	double sumup = 0;
 	double sumdown = 0;        
@@ -712,7 +699,6 @@ int printAddr(any_t t1, inner_hash_entry* entry){
           ve =  drvector_get_entry(&entry->lost_bits_vec, i);
 	  sumup += (fabs(ve->dvalue) - mean)*(fabs(ve->dvalue) - mean)*(fabs(ve->dvalue) - mean);	
 	  sumdown += (fabs(ve->dvalue) - mean)*(fabs(ve->dvalue) - mean);
-          free(ve);
 	}
 	double nsqrt = sqrt((double)entry->call_count);
 	sumdown = sqrt(sumdown*sumdown*sumdown);
@@ -720,9 +706,8 @@ int printAddr(any_t t1, inner_hash_entry* entry){
 	if(sumdown != 0)
 		skewness = nsqrt* ((double)sumup/sumdown);
 
-	dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf resMean %.13lf skewness %.13lf \n",entry->addr,entry->line_number,
-				round((double)num_of_bits/entry->call_count),entry->no_bits, mean,resMean,  skewness);
-        free(entry);
+	dr_fprintf(logOut, ""PIFX" %d %ld %d skewness %.13lf mean %.13lf\n",entry->addr,entry->line_number,
+				round((double)num_of_bits/entry->call_count),entry->no_bits, skewness, mean);
 return 0;
 }
 
@@ -730,8 +715,16 @@ return 0;
 void printFunction(char* key, outer_hash_entry* entry){
 //	printf("function name is %s and file %s\n", key, entry->file);
 	dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
-	hashmap_it(entry->mapAddrs, &printAddr);
-        free(entry);
+//	hashmap_it(entry->mapAddrs, &printAddr);
+int i;
+double loss = 0;
+	for(i = 0; i < testcount; i++){
+		loss += fabs(testarr[i]);
+	}
+	double mean = (double)loss/testcount;
+	dr_fprintf(logOut, "mean %.13lf\n",mean);
+
+
 }
 
 //////////////HASHTABLE end
@@ -752,7 +745,45 @@ unsigned int sign: 1;
 
 void printht(){
 	hashmapProcess(functionmap,&printFunction);
+/*
+	outer_hash_entry* entry = hashmapGet(functionmap, "main");
+	inner_hash_entry* inVal;
+	int error;
+//inVal = malloc(sizeof(inner_hash_entry));
+	int i;
+
+dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
+	for(i = 0; i < size_arr; i++){
+
+		printf("Looking for addr %d\n", addr_arr[i]);
+		error = hashmap_get(entry->mapAddrs, addr_arr[i], (void**)(&inVal));
+		if(error == MAP_OK){
+			printf("%d %d %d bits %d\n", inVal->addr, inVal->call_count, inVal->line_number, inVal->no_bits );
+        		dr_fprintf(logOut, ""PIFX" %d %d\n",inVal->addr,inVal->line_number,inVal->call_count);
+		}
+		else 
+			printf("not this function %d\n", error);
 }
+*/
+/*
+	entry = hashmapGet(functionmap, "substr");
+
+dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file, entry->function_name);
+	for(i = 0; i < size_arr; i++){
+
+		printf("Looking for addr %d\n", addr_arr[i]);
+		error = hashmap_get(entry->mapAddrs, addr_arr[i], (void**)(&inVal));
+		if(error == MAP_OK){
+			printf("%d %d %d\n", inVal->addr, inVal->call_count, inVal->line_number );
+        		dr_fprintf(logOut, ""PIFX" %d %d\n",inVal->addr,inVal->line_number,inVal->call_count);
+		}
+		else 
+			printf("not this function %d\n", error);
+
+}
+*/
+}
+
 
 
 
@@ -762,7 +793,7 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
 
-    printf("Started dr_init\n");
+printf("Started dr_init\n");
 
     dr_register_exit_event(exit_event);
     dr_register_bb_event(bb_event);
@@ -773,7 +804,6 @@ dr_init(client_id_t id)
     if (drsym_init(0) != DRSYM_SUCCESS) {
         dr_log(NULL, LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
     }
-    
 #endif
 
 htinit();
@@ -785,9 +815,10 @@ exit_event(void)
 {
 #ifdef SHOW_RESULTS
     char msg[512];
-    int len = dr_snprintf(msg, sizeof(msg),
+    int len;
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "Instrumentation results:\n"
-                      "Processed %d instructions\n"
+                      "Processed %d  instructions\n"
                       ,fp_count);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
@@ -801,16 +832,12 @@ exit_event(void)
         dr_log(NULL, LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
     }
 #endif
-    if(!callgrind_log_created){
-	writeCallgrind(thread_id_for_log);
-	callgrind_log_created = true;
-    }
-
-
 printht();
 
 
 }
+
+
 
 void
 writeLog(void* drcontext){
@@ -844,43 +871,130 @@ writeLog(void* drcontext){
 
 
 static void
-print_address(inner_hash_entry *inVal, int bits, double dRes, double lossD)
+print_address(app_pc addr, int bits, double loss, double lossD)
 {
-//	if(bits !=0 && dRes != 0 && lossD != 0){
-//	if(inVal->addr == 0x403311)	
-//	printf("begin print address "PIFX"\n", inVal->addr);
-	++inVal->call_count;
+
+    const char* prefix = "PRINT ADDRESS: ";
+    drsym_error_t symres;
+    drsym_info_t *sym;
+    char sbuf[sizeof(*sym) + MAX_SYM_RESULT];
+    module_data_t *data;
+    data = dr_lookup_module(addr);
+    if (data == NULL) {
+       // dr_fprintf(logF, "%s data is null "PFX" \n", prefix, addr);
+        return;
+    }
+    snprintf(process_path, MAXIMUM_PATH,"%s",data->full_path);
+
+
+    if(!callgrind_log_created){
+	writeCallgrind(thread_id_for_log);
+	callgrind_log_created = true;
+    }
+
+    sym = (drsym_info_t *) sbuf;
+    sym->struct_size = sizeof(*sym);
+    sym->name_size = MAX_SYM_RESULT;   
+
+    symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
+                           DRSYM_DEFAULT_FLAGS);
+
+
+    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+        const char *modname = dr_module_preferred_name(data);
+        if (modname == NULL)
+            modname = "<noname>";
+        //dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX", line off "PFX" \n", prefix, addr,
+                   //modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
+
+
+	char key_string[KEY_MAX_LENGTH];
+	snprintf(key_string, KEY_MAX_LENGTH, "%s", sym->name);
+
+	outer_hash_entry* value;
+	if(hashmapGet(functionmap, key_string) == 0){
+		value = malloc(sizeof(outer_hash_entry));
+		value->mapAddrs = hashmap_new();
+		snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
+		snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
+		int error = hashmapSet(functionmap, value, value->function_name);
+		printf("Inserted success %s %d\n", value->function_name, error);
+	}
+
+	testarr[testcount] = lossD;
+	testcount++;
+	printf("test ins %d\n", testcount);
+	value = hashmapGet(functionmap, key_string);
+/*	inner_hash_entry* inVal;
+	int error;
+//	inVal = malloc(sizeof(inner_hash_entry));
+	error = hashmap_get(value->mapAddrs, addr, (void**)(&inVal));
+	if(error == MAP_MISSING){
+//		printf("Map missing case %x\n", addr);
+		//free(inVal);
+		inVal = malloc(sizeof(inner_hash_entry));
+		inVal->call_count = 0;
+		inVal->no_bits = 0;
+		inVal->line_number = sym->line;
+		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
+			printf("error in drvector_init bits for %s\n", key_string);	
+		}
+	}
+	inVal->addr = addr;        
+	inVal->call_count++;
+	printf("Inserting for %x with error code %d and count %d\n", addr, error, 	inVal->call_count);
 	if(inVal->no_bits < bits){
 		inVal->no_bits = bits;
 	}
-
-	if(inVal->loss < lossD){
-		inVal->loss = lossD;
+	if(inVal->loss < loss){
+		inVal->loss = loss;
 	}
-//	printf("in print addr\n");
-//	vector_entry* ve = malloc(sizeof(vector_entry));
-//	ve->bits = bits;
-//	ve->dvalue = lossD;
-  //      ve->result = dRes;
-//	if(!drvector_append(&inVal->lost_bits_vec, ve)){
-//		printf("couldn't add to bits vector\n");
-//	}
-//	}
-//	else{
-//		printf("Function for 0s "PIFX"\n", inVal->addr);
+	vector_entry* ve = malloc(sizeof(vector_entry));
+	ve->bits = bits;
+	ve->value = loss;
+	ve->dvalue = lossD;
+	if(!drvector_append(&inVal->lost_bits_vec, ve)){
+		printf("couldn't add to bits vector\n");
+	}
+        error = hashmap_put(value->mapAddrs, addr, inVal);
+        if(error != MAP_OK){printf("Error %d\n", error);}
+*/
 
-//	}
-	
-//	if(inVal->addr == 0x403311)	
-//	printf("end of print add "PIFX"\n", inVal->addr);
+	if(hashmapGet(functionmap, key_string) == 0){
+		printf("Error, didn't insert\n");
+
+	}
+
+//add check for line not available
+       if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+           // dr_fprintf(logF, "%s Line is not available\n", prefix);
+        } else {
+           // dr_fprintf(logF, "Line number is  %s:%"UINT64_FORMAT_CODE" %d\n",
+                      // sym->file, sym->line, sym->line_offs);
+        }
+    } else
+      //  dr_fprintf(logF, "%s some error "PFX" \n", prefix, addr);
+  
+    dr_free_module_data(data);
 }
 
 
 void
 writeCallgrind(int thread_id){
 	char logname[MAXIMUM_PATH];
-    	int len = dr_snprintf(logname, sizeof(logname), 
-            "callgrind.%d.out", thread_id);
+	char *dirsep;
+    	int len;
+	char * tmp = process_path;
+
+	len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
+                      "%s", tmp);
+
+	DR_ASSERT(len > 0);
+	for (dirsep = logname + len; *dirsep != '/'; dirsep--)
+        DR_ASSERT(dirsep > logname);
+    	len = dr_snprintf(dirsep + 1,
+                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
+                      "callgrind.%d.out", thread_id);
     	DR_ASSERT(len > 0);
     	NULL_TERMINATE(logname);
     	logOut = dr_open_file(logname, 
@@ -898,7 +1012,7 @@ writeCallgrind(int thread_id){
        	dr_fprintf(logOut, "version: 1\n");
        	dr_fprintf(logOut, "creator: callgrind-3.6.1-Debian\n");
        	dr_fprintf(logOut, "positions: instr line\n");
-       	dr_fprintf(logOut, "events: Average Max Mean\n\n\n");
+       	dr_fprintf(logOut, "events: Average Max\n\n\n");
 
 }
 
@@ -927,8 +1041,8 @@ bool is_single_precision_instr(int opcode){
 
 
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry){
-//	printf("in getREgReg "PIFX"\n", entry->addr);
+getRegReg(reg_id_t r1, reg_id_t r2, int opcode, app_pc addr){
+	
 	const char * r1Name = get_register_name(r1);
 	const char * r2Name = get_register_name(r2);
 	int s1        = atoi(r1Name + 3 * sizeof(char));
@@ -938,10 +1052,9 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry){
    	mcontext.flags = DR_MC_MULTIMEDIA;
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-
 	int r, s;
 	int bits = 0;
-	double dRes = 0;
+	double loss = 0;
 	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
 		float op1, op2;
@@ -957,23 +1070,72 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry){
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
+//		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+//		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
 
+
+/*		//////adding zero case
+		struct FP* fp = (struct FP*)&op1;
+	        exp1 = fp->exponent - 127;
+		mant1 = fp->mantissa;	
+		fp = (struct FP*)&op2;
+	        exp2 = fp->exponent - 127;
+		mant2 = fp->mantissa;
+		bits =abs(exp1-exp2);		
+		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+*/
+
+/*		int mask = 0;
+		int ind = 0;
+		for(ind= 0; ind < bits; ind++){
+			mask = mask << 1;
+			mask = mask | 1;
+		}
+//		printf("mask value in hex %x\n", mask);
+		
+		unsigned int expmask = 0xFF800000;
+		unsigned int totalmask = expmask | mask;
+//		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
+		if(exp2<exp1){
+			int intop2 = *(int*)&op2;
+//			printf("op2 in hex %x\n", intop2);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+//				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				loss = lostbits;
+//				printf("lost value is %.13f\n", lostbits);
+			}
+		}
+		else if(exp1 > exp2){
+			int intop2 = *(int*)&op1;
+//			printf("op2 in hex %x\n", intop2);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+//				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				loss = lostbits;
+//				printf("lost value is %.13f\n", lostbits);
+			}
+		}
+		else{
+			loss = 0;
+		}
+*/
 		double dop1 = op1;
 		double dop2 = op2;
 		if(opcode == OP_addss){
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
-			dRes = dadd;
 //		printf("double %.13lf float %.13f\n", dadd, fadd);
 		}
 		else{
 			double dsub = dop1 - dop2;
 			float fsub = op1 - op2;	
 			lossD = dsub - fsub;
-			dRes = dsub;
 		}
-
 
 //		printf("diff of double and float is %.13lf\n", lossD);
 	}
@@ -991,91 +1153,25 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry){
 		mant1 = frexp(op1, &exp1);
 		mant2 = frexp(op2, &exp2);
 		bits = abs(exp1-exp2);
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		/*
+		struct DP* dp = (struct DP*)&op1;
+	        exp1 = dp->exponent - 1023;	
+		mant1 = dp->mantissa;
+		dp = (struct DP*)&op2;
+	        exp2 = dp->exponent - 1023;
+		mant2 = dp->mantissa;
+		bits =abs(exp1-exp2);
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		*/
 	}
-//	printf("before printf address "PIFX"\n", entry->addr);
-	print_address(entry, bits, dRes, lossD);
-}
-
-inner_hash_entry *get_inner_hash_entry(app_pc addr)
-{
-    char sbuf[sizeof(drsym_info_t) + MAX_SYM_RESULT];
-    module_data_t *data = dr_lookup_module(addr);
-    if (data == NULL) {
-       // dr_fprintf(logF, "%s data is null "PFX" \n", prefix, addr);
-        return;
-    }
-
-    drsym_info_t *sym = (drsym_info_t *) sbuf;
-    sym->struct_size = sizeof(drsym_info_t);
-    sym->name_size = MAX_SYM_RESULT;   
-
-    drsym_error_t symres = drsym_lookup_address(data->full_path, 
-        addr - data->start, sym, DRSYM_DEFAULT_FLAGS);
-
-    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-        const char *modname = dr_module_preferred_name(data);
-        if (modname == NULL)
-            modname = "<noname>";
-        //dr_fprintf(logF, "%s "PFX" %s, function name is: %s, "PIFX", line off "PFX" \n", prefix, addr,
-                   //modname, sym->name, addr - data->start - sym->start_offs, sym->line_offs);
-
-
-	char key_string[KEY_MAX_LENGTH];
-	dr_snprintf(key_string, KEY_MAX_LENGTH, "%s", sym->name);
-
-	outer_hash_entry* value;
-	if((value = hashmapGet(functionmap, key_string)) == 0){
-		value = malloc(sizeof(outer_hash_entry));
-		value->mapAddrs = hashmap_new();
-
-                // Attempting to access the file value if 
-                // symres == DRSYM_ERROR_LINE_NOT_AVAILABLE appears to cause
-                // a segmentation fault.
-
-                if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE)
-                  dr_snprintf(value->file, KEY_MAX_LENGTH, "%s", "<unknown file>");
-                else
-                  dr_snprintf(value->file, KEY_MAX_LENGTH, "%s", sym->file);
-
-                dr_snprintf(value->function_name, KEY_MAX_LENGTH, "%s", sym->name);
-		int error = hashmapSet(functionmap, value, value->function_name);
-		printf("Inserted success %s %d\n", value->function_name, error);
-	}
-	
-        inner_hash_entry* inVal;
-	int error = hashmap_get(value->mapAddrs, addr, (void**)(&inVal));
-	if(error == MAP_MISSING){
-		inVal = malloc(sizeof(inner_hash_entry));
-		inVal->call_count = 0;
-		inVal->no_bits = 0;
-		inVal->line_number = sym->line;
-                inVal->line_offset = sym->line_offs;
-		if(!drvector_init(&inVal->lost_bits_vec, 10, false,NULL)){
-			printf("error in drvector_init bits for %s\n", key_string);	
-		}
-	}
-	inVal->addr = addr;        
-
-        error = hashmap_put(value->mapAddrs, addr, inVal);
-        if(error != MAP_OK)
-          printf("Error %d\n", error);
-    	dr_free_module_data(data);
-        return inVal;
-    }
-    else
-    {
-      printf("Failed to locate symbol\n");
-      dr_free_module_data(data);
-      return NULL;
-    }
-	
-    dr_free_module_data(data);
+	print_address(addr, bits, loss, lossD);
 }
 
 static void
-callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_hash_entry *entry){
-//	if(entry->addr == 0x403311)
-//		printf("in callback "PIFX"\n", entry->addr);
+callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, app_pc addr){
 	int r, s;
    	const char * destRegName = get_register_name(destReg);
    	int regId = atoi(destRegName + 3 * sizeof(char));
@@ -1084,7 +1180,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
    	mcontext.flags = DR_MC_ALL;
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-	
+
 	reg_t mem_reg;
 	if(reg == DR_REG_RAX)
 		mem_reg = mcontext.rax;
@@ -1102,74 +1198,111 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 		mem_reg = mcontext.rsi;
 	else if(reg == DR_REG_RSP)
 		mem_reg = mcontext.rsp;
-	else if(reg == DR_REG_R8)
-		mem_reg = mcontext.r8;
-
-	else if(reg == DR_REG_R9)
-		mem_reg = mcontext.r9;
-	else if(reg == DR_REG_R10)
-		mem_reg = mcontext.r10;
-	else if(reg == DR_REG_R11)
-		mem_reg = mcontext.r11;
-	else if(reg == DR_REG_R12)
-		mem_reg = mcontext.r12;
-	else if(reg == DR_REG_R13)
-		mem_reg = mcontext.r13;
-
-	else if(reg == DR_REG_R14)
-		mem_reg = mcontext.r14;
-	else if(reg == DR_REG_R15)
-		mem_reg = mcontext.r15;
 	else
 		mem_reg = NULL;
 //deal with a null case, rip enum doesn't exist
-	if(mem_reg == NULL)
-		printf("mem reg is null \n");
+
 	int bits = 0;
-	double dRes = 0;
+	double loss = 0;
 	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
-	
    		float op1, op2;
 //   		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
-
-		//for(r=0; r<16; ++r)
-		//	for(s=0; s<4; ++s)
-		 //    		printf("reg %i.%i: %f\n", r, s, 
-		//			*((float*) &mcontext.ymm[r].u32[s]));
-
    		op2 = *(float*)(mem_reg + displacement);
-
-
+//		for(r=0; r<16; ++r)
+//			for(s=0; s<4; ++s)
+//		     		printf("reg %i.%i: %f\n", r, s, 
+//					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
   // 		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
 		int exp1, exp2;
-
-
+/*		double d1 = 10.123;
+		double d2 = 0.123;
+		double d = d1+d2;
+		float f1 = 10.123;
+		float f2 = 0.123;
+		float f = f1+f2;
+		long int di = *(long int*)&d1;
+		int fi = *(int*)&f;
+		
+		printf("double %.13lf %x %d float %f %x %d\n", d,di,sizeof(long int), f, fi,  sizeof(float));
+		double r = f-d;
+		printf("result is %.13lf\n", r);
+*/
 		float mant1, mant2;
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-	
+//		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+//		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+		
 
+		/*
+		struct FP* fp = (struct FP*)&op1;
+	        exp1 = fp->exponent - 127;	
+		mant1 = (fp->mantissa | 0x800000)/powf(2, 24);
+		//mant1 = *(float*)&temp;	
+		fp = (struct FP*)&op2;
+	        exp2 = fp->exponent - 127;
+		mant2 =( fp->mantissa | 0x800000)/powf(2, 24);
+		bits =abs(exp1-exp2);	
+		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
+		*/
+
+
+/*		unsigned int mask = 0;
+		int ind = 0;
+		for(ind= 0; ind < bits; ind++){
+			mask = mask << 1;
+			mask = mask | 1;
+		
+		}
+		unsigned int expmask = 0xFF800000;
+		unsigned int totalmask = expmask | mask;
+//		printf("mask value in hex %x exp %x total %x\n", mask, expmask, totalmask);
+		if(exp1>exp2){
+			int intop2 = *(int*)&op2;
+//			printf("op2 in hex %x\n", intop2);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+//				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+//				printf("lost value is %.13f\n", lostbits);
+				loss = lostbits;
+			}
+		}
+		else if(exp1 < exp2){
+			int intop2 = *(int*)&op1;
+//			printf("op2 in hex %x\n", intop2);
+			if(intop2 & mask != 0){
+				int bin = intop2 & totalmask;
+//				printf("lost in binary %x\n", bin);
+				float lostbits = *(float*)&bin;
+				loss = lostbits;
+//				printf("lost value is %.13f\n", lostbits);
+			}
+		}
+		else{
+			loss = 0;
+		}
+*/
 		double dop1 = op1;
 		double dop2 = op2;
 		if(opcode == OP_addss){
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
-			dRes = dadd;
 		//printf("double %.13lf float %.13f\n", dadd, fadd);
 		}
 		else{
 			double dsub = dop1 - dop2;
 			float fsub = op1 - op2;	
 			lossD = dsub - fsub;
-			dRes = dsub;
 		}
 //		printf("diff of double and float is %.13lf\n", lossD);
 	}
-	else {
+	else{
 		double op1, op2;
    		printf("Mem reg contents: %.13lf\n", *(double*)(mem_reg + displacement));
    		op2 = *(double*)(mem_reg + displacement);
@@ -1187,12 +1320,21 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
 		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
 		
+		/*
+		struct DP* dp = (struct DP*)&op1;
+	        exp1 = dp->exponent - 1023;	
+		mant1 = dp->mantissa;
+		dp = (struct DP*)&op2;
+	        exp2 = dp->exponent - 1023;
+		mant2 = dp->mantissa;
+		bits =abs(exp1-exp2);	
+		printf("op1 %.13lf mantissa %.13lf exp %d\n", op1, mant1, exp1);
+		printf("op2 %.13lf mantissa %.13lf exp %d\n", op2, mant2, exp2);
+		*/
 	}
-//	if(mem_reg == NULL){
-//		print_address(entry, 0, 0, 0);
-//	}
-	print_address(entry, bits, dRes, lossD);
+	print_address(addr, bits, loss, lossD);
 }
+
 
 
 
@@ -1223,30 +1365,24 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
 		if(opnd_is_memory_reference(source1)){
-			if(instr_get_app_pc(instr) == 0x403311){
-				dr_print_instr(drcontext, logF, instr, "INSTR: ");
-				dr_print_opnd(drcontext, logF, source1, "OPND1: ");
-				dr_print_opnd(drcontext, logF, source2, "OPND2: ");
-			}
+	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
+//			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
+//			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
-                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr));
-//			printf("before callback\n");
 			dr_insert_clean_call(drcontext, bb, instr, 
 				(void*) callback, true, 5, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
-				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry));
+				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
 
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1);
 			reg_id_t reg2 = opnd_get_reg(source2);
-                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr));
-		//	printf("before getRegReg "PIFX" \n", instr_get_app_pc(instr));
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
 				true, 4, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
-				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry)
+				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(instr_get_app_pc(instr))
 			); 
 		}
 		else{
