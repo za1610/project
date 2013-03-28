@@ -112,8 +112,24 @@ typedef struct
    std::map<app_pc, inner_hash_entry*> mapAddrs;
 } outer_hash_entry;
 
+
+typedef struct{
+  double dv;
+  float sv;
+}
+memv_entry;
+
+typedef struct
+{
+//  double value;
+  app_pc addr; 
+  std::vector<memv_entry> values;
+}
+mem_map_entry;
+
 static std::map<std::string, outer_hash_entry> functionmap;
 
+static std::map<float*, mem_map_entry*> memorymap;
 
 static long int total = 0;
 
@@ -169,11 +185,29 @@ return 0;
 void printFunction(const std::pair<std::string, outer_hash_entry>& pair){
         const outer_hash_entry *entry = &pair.second;
 //	printf("function name is %s and file %s\n", key, entry->file);
-	dr_fprintf(logOut, "fl=%s\nfn=%s\n",entry->file.c_str(), entry->function_name.c_str());
+	std::string obj_name = entry->file;
+	int found = obj_name.find('.');
+	obj_name.resize(found);
+	dr_fprintf(logOut, "ob=%s\nfl=%s\nfn=%s\n",obj_name.c_str(), entry->file.c_str(), entry->function_name.c_str());
         std::for_each(entry->mapAddrs.begin(), entry->mapAddrs.end(), &printAddr);
 }
 
 //////////////HASHTABLE end
+
+
+void printMemory(const std::pair<float*, mem_map_entry*>& pair){
+	printf("memory: "PIFX" ", pair.first);
+        const mem_map_entry* entry = pair.second;
+	int i;
+	const memv_entry* ve;
+     
+	printf(" with vector %d and pc "PIFX"\n", entry->values.size(), entry->addr);
+//	  for(i = 0; i < entry->values.size(); i++){
+//                ve = &entry->values[i];
+//		printf("double: %.13lf, float %.13f\n", ve->dv, ve->sv);  
+//	}  
+	
+}
 
 
 struct FP{
@@ -191,6 +225,7 @@ unsigned int sign: 1;
 
 void printht(){
         std::for_each(functionmap.begin(), functionmap.end(), &printFunction);
+        std::for_each(memorymap.begin(), memorymap.end(), &printMemory);
 }
 
 
@@ -221,6 +256,9 @@ dr_init(client_id_t id)
 static void
 exit_event(void)
 {
+
+
+printf("In exit event\n");
 #ifdef SHOW_RESULTS
     char msg[512];
     int len = dr_snprintf(msg, sizeof(msg),
@@ -338,7 +376,7 @@ writeCallgrind(int thread_id){
 
 
 bool is_SIMD_arithm(int opcode){
-	return (opcode == OP_addss || opcode == OP_subss
+	return (opcode == OP_addss //|| opcode == OP_subss
 //	|| opcode == OP_addsd ||  opcode == OP_subsd 
 	//    || opcode == OP_mulss || opcode == OP_mulsd || opcode == OP_divss || opcode == OP_divsd ||	
 	//    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss
@@ -370,7 +408,7 @@ static int getMMRegisterID(const reg_id_t r)
 }
 
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry){
+getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , mem_map_entry* mem){
 	
 	const int s1        = getMMRegisterID(r1);
 	const int s2        = getMMRegisterID(r2);
@@ -407,6 +445,13 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry){
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
+		//	printf("!!!!!!!!!!!! %lf %f %f %f\n", dadd, fadd, op1, op2);
+			if(mem != NULL){
+			  memv_entry ve;
+	  		  ve.dv = dadd;
+	  		  ve.sv = fadd;
+                 	  mem->values.push_back(ve);
+			}
 //		printf("double %.13lf float %.13f\n", dadd, fadd);
 		}
 		else{
@@ -519,7 +564,7 @@ inner_hash_entry *get_inner_hash_entry(app_pc addr)
 }
 
 static void
-callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_hash_entry *entry){
+callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_hash_entry *entry, mem_map_entry* mem){
 	int r, s;
    	int regId = getMMRegisterID(destReg);
    	dr_mcontext_t mcontext;
@@ -555,6 +600,14 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
+
+  			if(mem != NULL){
+	   		  memv_entry ve;
+	  		  ve.dv = dadd;
+	  		  ve.sv = fadd;
+                 	  mem->values.push_back(ve);
+			}
+
 		//printf("double %.13lf float %.13f\n", dadd, fadd);
 		}
 		else{
@@ -586,7 +639,6 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 }
 
 
-
 static dr_emit_flags_t
 bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
@@ -595,6 +647,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
+
+	mem_map_entry* mem = NULL;
+
 	if(instr_is_floating(instr)){
    	//	dr_fprintf(logF, "Has seen FPU instruction with opcode %d\n",opcode);
 	
@@ -602,7 +657,6 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 	else if(is_SIMD_packed(opcode)){
    	//	dr_fprintf(logF, "Has seen SIMD packed instruction with opcode %d\n",opcode);
 	}
-//AVX?rcpps?
 
 	else if(is_SIMD_arithm(opcode)){
 		int is_single = 0;
@@ -613,6 +667,85 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source1 = instr_get_src(instr,0);
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
+
+		instr_t* prev = instr_get_prev(instr);//NUll case
+				
+		if(prev == NULL)
+			printf("SOME null 1\n");	
+		int prev_opcode = instr_get_opcode(prev);
+		while(!(prev_opcode == OP_movss && opnd_is_reg(instr_get_dst(prev,0)) && opnd_get_reg(instr_get_dst(prev, 0)) == opnd_get_reg(source2))){
+		  prev = instr_get_prev(prev);
+		  if(prev == NULL)
+			break;
+		  prev_opcode = instr_get_opcode(prev);
+
+		}
+		if(prev == NULL){
+			printf("SOME null 2\n");	
+		}
+		else{
+
+		dr_print_instr(drcontext, logF, prev, "prev INSTR: ");
+		dr_print_opnd(drcontext, logF, instr_get_src(prev, 0), "OPND1: ");
+		dr_print_opnd(drcontext, logF, instr_get_dst(prev, 0), "OPND2: ");
+
+		  instr_t* next = instr_get_next(instr);
+		  if(next == NULL)
+			printf("SOME null 3\n");	
+		  int next_opcode = instr_get_opcode(next);
+
+
+		 while(!(next_opcode == OP_movss && opnd_is_reg(instr_get_src(next,0)) && opnd_get_reg(instr_get_src(next, 0)) == opnd_get_reg(source2) ) ){
+		    next = instr_get_next(next);
+		    if(next == NULL)
+			break;
+		    next_opcode = instr_get_opcode(next);
+		  }
+		  if(next == NULL){
+			printf("SOME null 4\n");	
+		  }
+		  else{
+
+			dr_print_instr(drcontext, logF, next, "next INSTR: ");
+			dr_print_opnd(drcontext, logF, instr_get_src(next, 0), "OPND1: ");
+			dr_print_opnd(drcontext, logF, instr_get_dst(next, 0), "OPND2: ");
+		    opnd_t mem_addr = instr_get_dst(next, 0);
+		    mem = new mem_map_entry();
+		    app_pc pc_addr = instr_get_app_pc(next);
+		    mem->addr = pc_addr;
+		    float * addr;
+		    if(opnd_is_memory_reference(mem_addr)){
+			if(opnd_is_rel_addr(mem_addr)){
+				addr = (float*)opnd_get_addr(mem_addr);
+				printf("rel "PIFX" \n", opnd_get_addr(mem_addr));
+			}
+			else{
+   	              	 dr_mcontext_t mcontext;
+   		      	 memset(&mcontext, 0, sizeof(dr_mcontext_t));
+   		      	 mcontext.flags = DR_MC_ALL;
+   		      	 mcontext.size = sizeof(dr_mcontext_t);
+   		      	 bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+		      	 reg_id_t reg = opnd_get_reg_used(mem_addr, 0);
+		      	 reg_t mem_reg = reg_get_value(reg, &mcontext);
+	              	 int displacement = opnd_get_disp(mem_addr);
+   		      	 addr = (float*)(mem_reg + displacement);
+	              	 printf("!!!!!!!!!!! %x %d\n",addr, displacement);
+		       }
+		       memorymap[addr] = mem;
+
+		    }
+		    else{
+			printf("not mem ref\n");
+		//another xmm register	
+		    }
+
+		  }
+
+		}
+
+
+//		printf("before callbacks\n");
+
 		if(opnd_is_memory_reference(source1)){
 	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
 //			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
@@ -622,9 +755,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                         inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr));
 
 			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) callback, true, 5, 
+				(void*) callback, true, 6, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
-				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry));
+				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry), OPND_CREATE_INTPTR(mem));
 
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
@@ -632,9 +765,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			reg_id_t reg2 = opnd_get_reg(source2);
                         inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr));
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
-				true, 4, 
+				true, 5, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
-				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry)
+				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry), OPND_CREATE_INTPTR(mem)
 			); 
 		}
 		else{

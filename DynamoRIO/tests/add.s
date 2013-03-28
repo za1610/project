@@ -1,4 +1,5 @@
 	.file	"add.c"
+	.intel_syntax noprefix
 	.text
 .Ltext0:
 	.globl	Add1
@@ -8,19 +9,19 @@ Add1:
 	.file 1 "add.c"
 	.loc 1 3 0
 	.cfi_startproc
-	pushq	%rbp
+	push	rbp
 .LCFI0:
 	.cfi_def_cfa_offset 16
 	.cfi_offset 6, -16
-	movq	%rsp, %rbp
+	mov	rbp, rsp
 .LCFI1:
 	.cfi_def_cfa_register 6
-	movss	%xmm0, -4(%rbp)
-	movss	%xmm1, -8(%rbp)
+	movss	DWORD PTR [rbp-4], xmm0
+	movss	DWORD PTR [rbp-8], xmm1
 	.loc 1 3 0
-	movss	-4(%rbp), %xmm0
-	addss	-8(%rbp), %xmm0
-	popq	%rbp
+	movss	xmm0, DWORD PTR [rbp-4]
+	addss	xmm0, DWORD PTR [rbp-8]
+	pop	rbp
 .LCFI2:
 	.cfi_def_cfa 7, 8
 	ret
@@ -57,39 +58,41 @@ main:
 .LFB1:
 	.loc 1 11 0
 	.cfi_startproc
-	pushq	%rbp
+	push	rbp
 .LCFI3:
 	.cfi_def_cfa_offset 16
 	.cfi_offset 6, -16
-	movq	%rsp, %rbp
+	mov	rbp, rsp
 .LCFI4:
 	.cfi_def_cfa_register 6
-	subq	$16, %rsp
-	.loc 1 12 0
-	movss	y(%rip), %xmm1
-	movss	p(%rip), %xmm0
-	call	Add1
-	movss	%xmm0, z(%rip)
+	sub	rsp, 16
 	.loc 1 13 0
-	movss	y(%rip), %xmm0
-	unpcklps	%xmm0, %xmm0
-	cvtps2pd	%xmm0, %xmm1
-	movss	p(%rip), %xmm0
-	unpcklps	%xmm0, %xmm0
-	cvtps2pd	%xmm0, %xmm0
-	movl	$.LC0, %eax
-	movq	%rax, %rdi
-	movl	$2, %eax
+	mov	DWORD PTR [rbp-4], 0
+	jmp	.L3
+.L4:
+	.loc 1 14 0 discriminator 2
+	movss	xmm1, DWORD PTR p[rip]
+	movss	xmm0, DWORD PTR y[rip]
+	addss	xmm0, xmm1
+	movss	DWORD PTR p[rip], xmm0
+	.loc 1 13 0 discriminator 2
+	add	DWORD PTR [rbp-4], 1
+.L3:
+	.loc 1 13 0 is_stmt 0 discriminator 1
+	cmp	DWORD PTR [rbp-4], 9
+	jle	.L4
+	.loc 1 17 0 is_stmt 1
+	movss	xmm0, DWORD PTR y[rip]
+	unpcklps	xmm0, xmm0
+	cvtps2pd	xmm1, xmm0
+	movss	xmm0, DWORD PTR p[rip]
+	unpcklps	xmm0, xmm0
+	cvtps2pd	xmm0, xmm0
+	mov	eax, OFFSET FLAT:.LC0
+	mov	rdi, rax
+	mov	eax, 2
 	call	printf
-	.loc 1 14 0
-	movl	$0x00000000, %eax
-	movl	%eax, -4(%rbp)
-	.loc 1 15 0
-	movss	-4(%rbp), %xmm1
-	movss	.LC2(%rip), %xmm0
-	addss	%xmm1, %xmm0
-	movss	%xmm0, -4(%rbp)
-	.loc 1 18 0
+	.loc 1 22 0
 	leave
 .LCFI5:
 	.cfi_def_cfa 7, 8
@@ -97,11 +100,6 @@ main:
 	.cfi_endproc
 .LFE1:
 	.size	main, .-main
-	.section	.rodata
-	.align 4
-.LC2:
-	.long	1065353216
-	.text
 .Letext0:
 	.section	.debug_info,"",@progbits
 .Ldebug_info0:
@@ -195,10 +193,10 @@ main:
 	.long	.LLST1
 	.long	0xde
 	.uleb128 0x7
-	.string	"b"
+	.string	"i"
 	.byte	0x1
-	.byte	0xe
-	.long	0xaa
+	.byte	0xc
+	.long	0x57
 	.byte	0x2
 	.byte	0x91
 	.sleb128 -20

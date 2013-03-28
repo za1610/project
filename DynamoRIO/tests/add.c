@@ -9,10 +9,14 @@
 
    void main()
    {
-       z = Add1(p, y);
+	int i;
+	for(i = 0; i < 10; i++){
+       p = p+y;
+	}
+
        printf("p = %f\t\ty = %f\n",p,y);
-				float b = 0;
-				b++;
+//				float b = 0;
+//				b++;
      //  Add1Again(p, &z);
      //  printf("p = %f\t\tz = %f\n",p,z);
    }
