@@ -138,6 +138,26 @@ static long int total = 0;
 int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
         const inner_hash_entry* entry = pair.second;
 	int i;
+	double mem_max = 0;
+  for (std::map<float*,mem_map_entry*>::iterator it=memorymap.begin(); it!=memorymap.end(); ++it){
+    
+  if(it->second->addr == entry->addr){
+	
+	  const memv_entry* ve;
+	  for(i = 0; i < it->second->values.size(); i++){
+                ve = &it->second->values[i];
+//		printf("double: %.13lf, float %.13f\n", ve->dv, ve->sv);  
+		if((ve->dv - (double)ve->sv) > mem_max)
+			mem_max = (ve->dv - (double)ve->sv);
+	}  
+	
+    }
+
+  }
+
+
+
+
 	const vector_entry* ve;
 	int num_of_bits = 0;
 	double loss = 0;
@@ -170,13 +190,15 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 	dr_fprintf(logOut, ""PIFX" %d %ld %d  mean %.13lf skewness %.13lf skewness vec %.13lf \n",entry->addr,entry->line_number,
 				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, (double) entry->sum_of_loss/entry->call_count, sk2, skewness);
 */
-	  dr_fprintf(logOut, ""PIFX" %d %ld %d %13.lf %13.lf\n",entry->addr,entry->line_number,
-				round((double)num_of_bits/entry->call_count),entry->no_bits, mean*10000000000000, skewness*10000000000000);
+
+
+	  dr_fprintf(logOut, ""PIFX" %d %ld %d %13.lf %13.lf %.13lf %.13lf\n",entry->addr,entry->line_number,
+				round((double)num_of_bits/entry->call_count),entry->no_bits, mean*10000000000000, skewness*10000000000000, mem_max, entry->loss);
         }
 	else{
 	  double mean =  (double) entry->sum_of_loss/entry->call_count;
-	  dr_fprintf(logOut, ""PIFX" %d %ld %d %13.lf %13.lf\n",entry->addr,entry->line_number,
-				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, mean*10000000000000,0);
+	  dr_fprintf(logOut, ""PIFX" %d %ld %d %13.lf %13.lf %.13lf %.13lf\n",entry->addr,entry->line_number,
+				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, mean*10000000000000,0, mem_max, entry->loss);
 	}
 return 0;
 }
@@ -690,7 +712,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		else
 			reg_src = NULL;
 
-
+// trying to find movss(store) instruction where source reg is the same as dest reg in addss
 	        instr_t* next = instr_get_next(instr);
 	        if(next == NULL)
 	          printf("SOME null 3\n");	
@@ -706,10 +728,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		  printf("no store or stored in other register\n");	
 		}
 		else{
-		 // dr_print_instr(drcontext, logF, next, "next INSTR: ");
-		//  dr_print_opnd(drcontext, logF, instr_get_src(next, 0), "OPND1: ");
-		//  dr_print_opnd(drcontext, logF, instr_get_dst(next, 0), "OPND2: ");
-		  opnd_t mem_addr = instr_get_dst(next, 0);
+		  //found mem_addr where register was copied to, 
+		  //looking for previous load instruction which has the same mem_addr and reg
+                  opnd_t mem_addr = instr_get_dst(next, 0);
 
 		  instr_t* prev = instr_get_prev(instr);//NUll case
 		  if(prev == NULL)
@@ -740,10 +761,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			printf("prev is null or mem moved into other register\n");//what if that register copied then to dest reg?	
 		  }
 		  else{
-		  //  dr_print_instr(drcontext, logF, prev, "prev INSTR: ");
-		  //  dr_print_opnd(drcontext, logF, instr_get_src(prev, 0), "OPND1: ");
-		  //  dr_print_opnd(drcontext, logF, instr_get_dst(prev, 0), "OPND2: ");
-
+		//found both load and store -> inserting into memory_map
 		    mem = new mem_map_entry();
 		    app_pc pc_addr = instr_get_app_pc(instr);
 		    mem->addr = pc_addr;
@@ -768,10 +786,8 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			if(addr == 0)
 				printf("0 in address ref addr\n\n\n");
 		      void * a =  opnd_get_addr(mem_addr);
-	        //      printf("!!!!!!!!!!! %x %d %x\n",addr, displacement, a);
 		    }
 
-		//	printf("HERE   "PIFX"\n", pc_addr);
 	/*	  dr_print_instr(drcontext, logF, next, "next INSTR: ");
 		  dr_print_opnd(drcontext, logF, instr_get_src(next, 0), "OPND1: ");
 		  dr_print_opnd(drcontext, logF, instr_get_dst(next, 0), "OPND2: ");
