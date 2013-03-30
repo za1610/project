@@ -639,6 +639,21 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 }
 
 
+bool compare_memory_operands(opnd_t op1, opnd_t op2){
+  if(opnd_is_rel_addr(op1) && opnd_is_rel_addr(op2)){
+    return opnd_get_addr(op1) == opnd_get_addr(op2);
+  }
+  else if(opnd_is_memory_reference(op1) && opnd_is_memory_reference(op2) ){
+    reg_id_t reg1 = opnd_get_reg_used(op1, 0);
+    reg_id_t reg2 = opnd_get_reg_used(op2, 0);
+    int disp1 = opnd_get_disp(op1);
+    int disp2 = opnd_get_disp(op2);
+    return ((reg1 == reg2) && (disp1 == disp2));
+  }
+  return false; 
+
+}
+
 static dr_emit_flags_t
 bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
@@ -668,83 +683,109 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
 
-		instr_t* prev = instr_get_prev(instr);//NUll case
-				
-		if(prev == NULL)
-			printf("SOME null 1\n");	
-		int prev_opcode = instr_get_opcode(prev);
-		while(!(prev_opcode == OP_movss && opnd_is_reg(instr_get_dst(prev,0)) && opnd_get_reg(instr_get_dst(prev, 0)) == opnd_get_reg(source2))){
-		  prev = instr_get_prev(prev);
-		  if(prev == NULL)
-			break;
-		  prev_opcode = instr_get_opcode(prev);
+		reg_id_t reg_src, reg_dst;
+		reg_dst = opnd_get_reg(source2);
+		if(opnd_is_reg(source1))
+			reg_src = opnd_get_reg(source1);
+		else
+			reg_src = NULL;
 
+
+	        instr_t* next = instr_get_next(instr);
+	        if(next == NULL)
+	          printf("SOME null 3\n");	
+		int next_opcode = instr_get_opcode(next);
+
+		while(!(next_opcode == OP_movss && opnd_is_reg(instr_get_src(next,0)) && opnd_get_reg(instr_get_src(next, 0)) == reg_dst) ){
+		  next = instr_get_next(next);
+		  if(next == NULL)
+	            break;
+		  next_opcode = instr_get_opcode(next);
 		}
-		if(prev == NULL){
-			printf("SOME null 2\n");	
+		if(next == NULL || !opnd_is_memory_reference(instr_get_dst(next, 0))){
+		  printf("no store or stored in other register\n");	
 		}
 		else{
+		 // dr_print_instr(drcontext, logF, next, "next INSTR: ");
+		//  dr_print_opnd(drcontext, logF, instr_get_src(next, 0), "OPND1: ");
+		//  dr_print_opnd(drcontext, logF, instr_get_dst(next, 0), "OPND2: ");
+		  opnd_t mem_addr = instr_get_dst(next, 0);
 
-		dr_print_instr(drcontext, logF, prev, "prev INSTR: ");
-		dr_print_opnd(drcontext, logF, instr_get_src(prev, 0), "OPND1: ");
-		dr_print_opnd(drcontext, logF, instr_get_dst(prev, 0), "OPND2: ");
-
-		  instr_t* next = instr_get_next(instr);
-		  if(next == NULL)
-			printf("SOME null 3\n");	
-		  int next_opcode = instr_get_opcode(next);
-
-
-		 while(!(next_opcode == OP_movss && opnd_is_reg(instr_get_src(next,0)) && opnd_get_reg(instr_get_src(next, 0)) == opnd_get_reg(source2) ) ){
-		    next = instr_get_next(next);
-		    if(next == NULL)
+		  instr_t* prev = instr_get_prev(instr);//NUll case
+		  if(prev == NULL)
+			printf("SOME null 1\n");	
+		  int prev_opcode = instr_get_opcode(prev);
+		  bool found_mem = false;
+		//if src of addss is memory and equal to the stored address
+		  if(reg_src == NULL && compare_memory_operands(mem_addr, source1)){//opnd_get_addr(mem_addr) == opnd_get_addr(source1)){
+			found_mem = true;
+	//		printf("found the case!!!! %x  \n", opnd_get_addr(mem_addr));
+		}
+		  while(!found_mem){
+		    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && compare_memory_operands(instr_get_src(prev, 0), mem_addr)){
+//opnd_get_addr(instr_get_src(prev,0)) == opnd_get_addr(mem_addr)){
+		      if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst || opnd_get_reg(instr_get_dst(prev, 0)) == reg_src))
+		        found_mem = true;
+		      else
 			break;
-		    next_opcode = instr_get_opcode(next);
+		    }
+		    else{ 
+		      prev = instr_get_prev(prev);
+		      if(prev == NULL)
+			break;
+		      prev_opcode = instr_get_opcode(prev);
+		    }
 		  }
-		  if(next == NULL){
-			printf("SOME null 4\n");	
+		  if(prev == NULL || !found_mem){
+			printf("prev is null or mem moved into other register\n");//what if that register copied then to dest reg?	
 		  }
 		  else{
+		  //  dr_print_instr(drcontext, logF, prev, "prev INSTR: ");
+		  //  dr_print_opnd(drcontext, logF, instr_get_src(prev, 0), "OPND1: ");
+		  //  dr_print_opnd(drcontext, logF, instr_get_dst(prev, 0), "OPND2: ");
 
-			dr_print_instr(drcontext, logF, next, "next INSTR: ");
-			dr_print_opnd(drcontext, logF, instr_get_src(next, 0), "OPND1: ");
-			dr_print_opnd(drcontext, logF, instr_get_dst(next, 0), "OPND2: ");
-		    opnd_t mem_addr = instr_get_dst(next, 0);
 		    mem = new mem_map_entry();
-		    app_pc pc_addr = instr_get_app_pc(next);
+		    app_pc pc_addr = instr_get_app_pc(instr);
 		    mem->addr = pc_addr;
 		    float * addr;
-		    if(opnd_is_memory_reference(mem_addr)){
-			if(opnd_is_rel_addr(mem_addr)){
-				addr = (float*)opnd_get_addr(mem_addr);
-				printf("rel "PIFX" \n", opnd_get_addr(mem_addr));
-			}
-			else{
-   	              	 dr_mcontext_t mcontext;
-   		      	 memset(&mcontext, 0, sizeof(dr_mcontext_t));
-   		      	 mcontext.flags = DR_MC_ALL;
-   		      	 mcontext.size = sizeof(dr_mcontext_t);
-   		      	 bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-		      	 reg_id_t reg = opnd_get_reg_used(mem_addr, 0);
-		      	 reg_t mem_reg = reg_get_value(reg, &mcontext);
-	              	 int displacement = opnd_get_disp(mem_addr);
-   		      	 addr = (float*)(mem_reg + displacement);
-	              	 printf("!!!!!!!!!!! %x %d\n",addr, displacement);
-		       }
-		       memorymap[addr] = mem;
-
+		    if(opnd_is_rel_addr(mem_addr)){
+		      addr = (float*)opnd_get_addr(mem_addr);
+			if(addr == 0)
+				printf("0 in relative addr\n\n\n");
+		      //printf("rel "PIFX" \n", opnd_get_addr(mem_addr));
 		    }
 		    else{
-			printf("not mem ref\n");
-		//another xmm register	
+   	              dr_mcontext_t mcontext;
+   		      memset(&mcontext, 0, sizeof(dr_mcontext_t));
+   		      mcontext.flags = DR_MC_ALL;
+   		      mcontext.size = sizeof(dr_mcontext_t);
+   		      bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+		      reg_id_t reg = opnd_get_reg_used(mem_addr, 0);
+		      reg_t mem_reg = reg_get_value(reg, &mcontext);
+	              int displacement = opnd_get_disp(mem_addr);
+   		      addr = (float*)(mem_reg + displacement);
+
+			if(addr == 0)
+				printf("0 in address ref addr\n\n\n");
+		      void * a =  opnd_get_addr(mem_addr);
+	        //      printf("!!!!!!!!!!! %x %d %x\n",addr, displacement, a);
 		    }
+
+		//	printf("HERE   "PIFX"\n", pc_addr);
+	/*	  dr_print_instr(drcontext, logF, next, "next INSTR: ");
+		  dr_print_opnd(drcontext, logF, instr_get_src(next, 0), "OPND1: ");
+		  dr_print_opnd(drcontext, logF, instr_get_dst(next, 0), "OPND2: ");
+		    dr_print_instr(drcontext, logF, prev, "prev INSTR: ");
+		    dr_print_opnd(drcontext, logF, instr_get_src(prev, 0), "OPND1: ");
+		    dr_print_opnd(drcontext, logF, instr_get_dst(prev, 0), "OPND2: ");
+	*/	
+		    memorymap[addr] = mem;
+		  
 
 		  }
 
-		}
 
-
-//		printf("before callbacks\n");
+	        }
 
 		if(opnd_is_memory_reference(source1)){
 	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
