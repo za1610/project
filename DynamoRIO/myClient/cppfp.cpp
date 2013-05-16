@@ -147,16 +147,13 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 	  for(i = 0; i < it->second->values.size(); i++){
                 ve = &it->second->values[i];
 //		printf("double: %.13lf, float %.13f\n", ve->dv, ve->sv);  
-		if((ve->dv - (double)ve->sv) > mem_max)
-			mem_max = (ve->dv - (double)ve->sv);
+		if(abs(ve->dv - (double)ve->sv) > mem_max)
+			mem_max = abs(ve->dv - (double)ve->sv);
 	}  
 	
     }
 
   }
-
-
-
 
 	const vector_entry* ve;
 	int num_of_bits = 0;
@@ -205,13 +202,18 @@ return 0;
 
 
 void printFunction(const std::pair<std::string, outer_hash_entry>& pair){
-        const outer_hash_entry *entry = &pair.second;
+   const outer_hash_entry *entry = &pair.second;
 //	printf("function name is %s and file %s\n", key, entry->file);
 	std::string obj_name = entry->file;
 	int found = obj_name.find('.');
+/*	if(found != -1){     
+		found = 1;
+	}
+*/
 	obj_name.resize(found);
 	dr_fprintf(logOut, "ob=%s\nfl=%s\nfn=%s\n",obj_name.c_str(), entry->file.c_str(), entry->function_name.c_str());
         std::for_each(entry->mapAddrs.begin(), entry->mapAddrs.end(), &printAddr);
+
 }
 
 //////////////HASHTABLE end
@@ -246,6 +248,7 @@ unsigned int sign: 1;
 };
 
 void printht(){
+
         std::for_each(functionmap.begin(), functionmap.end(), &printFunction);
         std::for_each(memorymap.begin(), memorymap.end(), &printMemory);
 }
@@ -392,7 +395,7 @@ writeCallgrind(int thread_id){
        	dr_fprintf(logOut, "version: 1\n");
        	dr_fprintf(logOut, "creator: callgrind-3.6.1-Debian\n");
        	dr_fprintf(logOut, "positions: instr line\n");
-       	dr_fprintf(logOut, "events: Average Max Mean Skewness\n\n\n");
+       	dr_fprintf(logOut, "events: Average Max Mean Skewness Mem_MAX Old_Max\n\n\n");
 }
 
 
@@ -711,7 +714,6 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			reg_src = opnd_get_reg(source1);
 		else
 			reg_src = NULL;
-
 // trying to find movss(store) instruction where source reg is the same as dest reg in addss
 	        instr_t* next = instr_get_next(instr);
 	        if(next == NULL)
@@ -728,6 +730,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		  printf("no store or stored in other register\n");	
 		}
 		else{
+
 		  //found mem_addr where register was copied to, 
 		  //looking for previous load instruction which has the same mem_addr and reg
                   opnd_t mem_addr = instr_get_dst(next, 0);
@@ -743,12 +746,14 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 	//		printf("found the case!!!! %x  \n", opnd_get_addr(mem_addr));
 		}
 		  while(!found_mem){
-		    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && compare_memory_operands(instr_get_src(prev, 0), mem_addr)){
-//opnd_get_addr(instr_get_src(prev,0)) == opnd_get_addr(mem_addr)){
-		      if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst || opnd_get_reg(instr_get_dst(prev, 0)) == reg_src))
+		    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && 
+                         compare_memory_operands(instr_get_src(prev, 0), mem_addr)){//opnd_get_addr(instr_get_src(prev,0)) == opnd_get_addr(mem_addr)){
+		      
+                     if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst || 
+                                   opnd_get_reg(instr_get_dst(prev, 0)) == reg_src))
 		        found_mem = true;
 		      else
-			break;
+			break;//found memory, but was copied to some other register
 		    }
 		    else{ 
 		      prev = instr_get_prev(prev);
@@ -761,6 +766,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 			printf("prev is null or mem moved into other register\n");//what if that register copied then to dest reg?	
 		  }
 		  else{
+
 		//found both load and store -> inserting into memory_map
 		    mem = new mem_map_entry();
 		    app_pc pc_addr = instr_get_app_pc(instr);
@@ -799,7 +805,6 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		  
 
 		  }
-
 
 	        }
 
