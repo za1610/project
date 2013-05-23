@@ -91,6 +91,9 @@ typedef struct
 
 typedef struct
 {
+
+    double dsum;
+    float fsum;
     app_pc addr;  
     int line_number;
     int call_count;
@@ -114,6 +117,7 @@ typedef struct
 
 
 typedef struct{
+
   double dv;
   float sv;
 }
@@ -122,7 +126,9 @@ memv_entry;
 typedef struct
 {
 //  double value;
-  app_pc addr; 
+  app_pc addr;
+  double dsum;
+  float fsum;
   std::vector<memv_entry> values;
 }
 mem_map_entry;
@@ -137,6 +143,10 @@ static long int total = 0;
 
 int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
         const inner_hash_entry* entry = pair.second;
+
+
+printf("!!!!!!!! "PIFX" double sum: %.13lf, float sum %.13f\n",entry->addr, entry->dsum, entry->fsum);  
+
 	int i;
 	double mem_max = 0;
   for (std::map<float*,mem_map_entry*>::iterator it=memorymap.begin(); it!=memorymap.end(); ++it){
@@ -165,9 +175,10 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 		num_of_bits += ve->bits;
 		loss += fabs(ve->dvalue);
 //		printf("drvector bits %d %x %d %.13lf %.13lf\n",i, entry->addr, ve->bits, ve->value, fabs(ve->dvalue)); 
-	  }  
+	  }
 	  double mean = (double)loss/entry->call_count;
 	  double sumup = 0;
+//		printf("Loss is %.13lf with calls %d\nmean is %.13lf\n", loss, entry->call_count, mean);  
 	  double sumdown = 0;        
 	  for(i = 0; i < entry->call_count; i++){
             ve = &entry->lost_bits_vec[i];
@@ -189,13 +200,17 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 */
 
 
-	  dr_fprintf(logOut, ""PIFX" %d %ld %d %13.lf %13.lf %.13lf %.13lf\n",entry->addr,entry->line_number,
-				round((double)num_of_bits/entry->call_count),entry->no_bits, mean*10000000000000, skewness*10000000000000, mem_max, entry->loss);
+	  dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf %.13lf %.13lf\n",entry->addr,entry->line_number,
+				round((double)num_of_bits/entry->call_count),entry->no_bits, 
+				mean, skewness, mem_max, entry->loss);
+//				mean*10000000000000, skewness*10000000000000, mem_max, entry->loss);
         }
 	else{
 	  double mean =  (double) entry->sum_of_loss/entry->call_count;
-	  dr_fprintf(logOut, ""PIFX" %d %ld %d %13.lf %13.lf %.13lf %.13lf\n",entry->addr,entry->line_number,
-				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, mean*10000000000000,0, mem_max, entry->loss);
+	  dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf %.13lf %.13lf\n",entry->addr,entry->line_number,
+				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, 
+				mean, mem_max, entry->loss);
+			//	mean*10000000000000,0, mem_max, entry->loss);
 	}
 return 0;
 }
@@ -213,7 +228,7 @@ void printFunction(const std::pair<std::string, outer_hash_entry>& pair){
 	obj_name.resize(found);
 	dr_fprintf(logOut, "ob=%s\nfl=%s\nfn=%s\n",obj_name.c_str(), entry->file.c_str(), entry->function_name.c_str());
         std::for_each(entry->mapAddrs.begin(), entry->mapAddrs.end(), &printAddr);
-
+	printf("size of the mapaddr in functionmap %d\n", entry->mapAddrs.size());
 }
 
 //////////////HASHTABLE end
@@ -226,6 +241,7 @@ void printMemory(const std::pair<float*, mem_map_entry*>& pair){
 	const memv_entry* ve;
      
 	printf(" with vector %d and pc "PIFX"\n", entry->values.size(), entry->addr);
+	printf(" fsum is  %.13f and dsum is %.13lf\n", entry->fsum, entry->dsum);
 //	  for(i = 0; i < entry->values.size(); i++){
 //                ve = &entry->values[i];
 //		printf("double: %.13lf, float %.13f\n", ve->dv, ve->sv);  
@@ -470,12 +486,17 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , mem_ma
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
+
+entry->dsum += dop2;
+entry->fsum += op2;
 		//	printf("!!!!!!!!!!!! %lf %f %f %f\n", dadd, fadd, op1, op2);
 			if(mem != NULL){
 			  memv_entry ve;
 	  		  ve.dv = dadd;
 	  		  ve.sv = fadd;
                  	  mem->values.push_back(ve);
+			  mem->dsum +=dop2;
+			  mem->fsum +=op2;
 			}
 //		printf("double %.13lf float %.13f\n", dadd, fadd);
 		}
@@ -566,7 +587,8 @@ inner_hash_entry *get_inner_hash_entry(app_pc addr)
 	  inVal->use_vector = true;
 //	  inVal->sum_of_squares = 0;
 //         inVal->sum_of_cubes = 0;
-
+inVal->fsum = 0;
+inVal->dsum = 0;
           value->mapAddrs[addr] = inVal;
           dr_printf("Instrumenting %s, function %s, line %d, pc %d\n", value->file.c_str(), 
             value->function_name.c_str(), inVal->line_number, addr);
@@ -625,12 +647,15 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
-
+entry->fsum += op2;
+entry->dsum += dop2;
   			if(mem != NULL){
 	   		  memv_entry ve;
 	  		  ve.dv = dadd;
 	  		  ve.sv = fadd;
                  	  mem->values.push_back(ve);
+			  mem->dsum += dop2;
+			  mem->fsum += op2;
 			}
 
 		//printf("double %.13lf float %.13f\n", dadd, fadd);
@@ -708,6 +733,10 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
 
+//        if (memorymap.find(key) == memorymap.end()) {
+
+
+
 		reg_id_t reg_src, reg_dst;
 		reg_dst = opnd_get_reg(source2);
 		if(opnd_is_reg(source1))
@@ -744,12 +773,12 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		  if(reg_src == NULL && compare_memory_operands(mem_addr, source1)){//opnd_get_addr(mem_addr) == opnd_get_addr(source1)){
 			found_mem = true;
 	//		printf("found the case!!!! %x  \n", opnd_get_addr(mem_addr));
-		}
+		  }
 		  while(!found_mem){
 		    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && 
                          compare_memory_operands(instr_get_src(prev, 0), mem_addr)){//opnd_get_addr(instr_get_src(prev,0)) == opnd_get_addr(mem_addr)){
 		      
-                     if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst || 
+                      if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst || 
                                    opnd_get_reg(instr_get_dst(prev, 0)) == reg_src))
 		        found_mem = true;
 		      else
@@ -771,10 +800,14 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		    mem = new mem_map_entry();
 		    app_pc pc_addr = instr_get_app_pc(instr);
 		    mem->addr = pc_addr;
+		    mem->dsum = 0;
+		    mem->fsum = 0;
 		    float * addr;
+		    
 		    if(opnd_is_rel_addr(mem_addr)){
 		      addr = (float*)opnd_get_addr(mem_addr);
-			if(addr == 0)
+			
+			     if(addr == 0)
 				printf("0 in relative addr\n\n\n");
 		      //printf("rel "PIFX" \n", opnd_get_addr(mem_addr));
 		    }
@@ -807,6 +840,8 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		  }
 
 	        }
+
+
 
 		if(opnd_is_memory_reference(source1)){
 	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
