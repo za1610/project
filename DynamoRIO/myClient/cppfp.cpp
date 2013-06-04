@@ -86,6 +86,14 @@ static int thread_id_for_log = 0;
 
 static double memory_used = 0;
 
+
+typedef struct{
+
+  double dv;
+  float sv;
+}
+memv_entry;
+
 typedef struct
 {
     int bits;
@@ -101,6 +109,10 @@ typedef struct
     app_pc addr;  
     int line_number;
     int call_count;
+
+std::map<float*, memv_entry*> mem_map;
+int index;
+
     int no_bits; //max num of bits
     double loss;  //max loss
     std::vector<vector_entry> lost_bits_vec;
@@ -121,12 +133,6 @@ typedef struct
 } outer_hash_entry;
 
 
-typedef struct{
-
-  double dv;
-  float sv;
-}
-memv_entry;
 
 typedef struct
 {
@@ -149,11 +155,20 @@ static long int total = 0;
 
 #define round(x) ((x)>=0?(long)((x)+0.5):(long)((x)-0.5))
 
+
+void printMemVar(const std::pair<float*, memv_entry*>& pair){
+        const memv_entry* entry = pair.second;
+	printf("memory used for storing: "PIFX" dsum is %.13lf and fsum is %.13f\n", pair.first, entry->dv,  entry->sv);
+
+}
+
 int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
         const inner_hash_entry* entry = pair.second;
 
 if(entry->memory){
-   printf("!!!!!!!! "PIFX" double sum: %.13lf, float sum %.13f\n",entry->addr, entry->dsum, entry->fsum);  
+   printf("For instruction "PIFX" double sum: %.13lf, float sum %.13f number of calls %d\n",entry->addr, entry->dsum, entry->fsum, entry->call_count);  
+ //  printf(" "PIFX" double sum: %.13lf, float sum %.13f number of calls %d\n",entry->addr, entry->dsum, entry->fsum, entry->call_count);  
+   std::for_each(entry->mem_map.begin(), entry->mem_map.end(), &printMemVar);
 }
 	int i;
 	double mem_max = 0;
@@ -208,16 +223,16 @@ if(entry->memory){
 */
 
 
-	  dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf %.13lf %.13lf\n",entry->addr,entry->line_number,
+	  dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf %.13lf %.13lf   %d\n",entry->addr,entry->line_number,
 				round((double)num_of_bits/entry->call_count),entry->no_bits, 
-				mean, skewness, mem_max, entry->loss);
+				mean, skewness, mem_max, entry->loss, entry->index);
 //				mean*10000000000000, skewness*10000000000000, mem_max, entry->loss);
         }
 	else{
 	  double mean =  (double) entry->sum_of_loss/entry->call_count;
-	  dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf %.13lf %.13lf\n",entry->addr,entry->line_number,
+	  dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf %.13lf %.13lf  %d\n",entry->addr,entry->line_number,
 				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, 
-				mean, mem_max, entry->loss);
+				mean, mem_max, entry->loss, entry->index);
 			//	mean*10000000000000,0, mem_max, entry->loss);
 	}
 return 0;
@@ -235,11 +250,12 @@ void printFunction(const std::pair<std::string, outer_hash_entry>& pair){
 */
 	obj_name.resize(found);
 	dr_fprintf(logOut, "ob=%s\nfl=%s\nfn=%s\n",obj_name.c_str(), entry->file.c_str(), entry->function_name.c_str());
-	printf("size of the mapaddr in function %d %s\n", entry->mapAddrs.size(),  entry->function_name.c_str());
+	printf("size of the mapaddr(number of instrs) in function %d %s\n", entry->mapAddrs.size(),  entry->function_name.c_str());
         std::for_each(entry->mapAddrs.begin(), entry->mapAddrs.end(), &printAddr);
 }
 
-//////////////HASHTABLE end
+
+
 
 
 void printMemory(const std::pair<float*, mem_map_entry*>& pair){
@@ -374,6 +390,7 @@ print_address(inner_hash_entry *inVal, int bits, double loss, double lossD)
 	++total;
 	if(inVal->no_bits < bits){
 		inVal->no_bits = bits;
+		inVal->index = inVal->call_count;
 	}
 
 	if(inVal->loss < lossD){
@@ -430,7 +447,7 @@ writeCallgrind(int thread_id){
 
 
 bool is_SIMD_arithm(int opcode){
-	return (opcode == OP_addss //|| opcode == OP_subss
+	return (opcode == OP_addss || opcode == OP_subss
 //	|| opcode == OP_addsd ||  opcode == OP_subsd 
 	//    || opcode == OP_mulss || opcode == OP_mulsd || opcode == OP_divss || opcode == OP_divsd ||	
 	//    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss
@@ -462,9 +479,11 @@ static int getMMRegisterID(const reg_id_t r)
 }
 
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , mem_map_entry* mem, reg_id_t glreg){
-	
+getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , mem_map_entry* mem, float* mem_var){
 //		printf("In getRegReg\n");
+
+//r2 dest, r1 source	
+
 	const int s1        = getMMRegisterID(r1);
 	const int s2        = getMMRegisterID(r2);
 	dr_mcontext_t mcontext;
@@ -477,33 +496,21 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , mem_ma
 	double loss = 0;
 	double lossD = 0;
 
-/*
-if(glreg == NULL)
-	printf("\nnull inside getregreg\n");
-else
-	printf("REGISTER IN getregreg IS %s\n",get_register_name(glreg));
-reg_t testreg = reg_get_value(glreg, &mcontext);
-float* maddr = (float*)(testreg - 8);
-printf("$$$$$$$$$$$ inside getregreg memory is "PIFX"\n", maddr);
-*/
+//reg_t testreg = reg_get_value(tr, &mcontext);
+//float* maddr = (float*)(testreg  + td);
+//printf("$$$$$$$$$$$ inside getregreg memory is "PIFX" disp %d\n", maddr, td);
 
 	if(is_single_precision_instr(opcode)){
 		float op1, op2;
-//		for(r=0; r<16; ++r)
-//			for(s=0; s<4; ++s)
-//		     		printf("reg %i.%i: %f\n", r, s, 
-//					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[s1].u32[0]);
+//printf("OP1 is %f\n", op1);
 		op2 = *((float*) &mcontext.ymm[s2].u32[0]);
-       //		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+		
 		int exp1, exp2;
 		float mant1, mant2;
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-//		printf("op1 %.13f mantissa %.13f exp %d\n", op1, mant1, exp1);
-//		printf("op2 %.13f mantissa %.13f exp %d\n", op2, mant2, exp2);
-
 
 		double dop1 = op1;
 		double dop2 = op2;
@@ -511,10 +518,37 @@ printf("$$$$$$$$$$$ inside getregreg memory is "PIFX"\n", maddr);
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
+//printf("op1 is %f and op2 is %f\n", op1,op2);
+//op2 source, op1 dest
+//source can be mem or reg; dest is reg
 
+
+			//to initialize to the initial sum at the beginning
+			if(entry->call_count == 0){
+				entry->dsum = dop1;
+				entry->fsum = op1;
+ //				printf("op1 is %f and op2 is %f\n", op1,op2);
+			}
+
+if(entry->memory){
+//	printf("memory true "PIFX"\n", mem_var);
+
+        if (entry->mem_map.find(mem_var) == entry->mem_map.end()) {
+//		printf("didnt findmemory  "PIFX"\n", mem_var);
+			memv_entry * m = new memv_entry();
+ 			m->dv = 0;
+			m->sv = 0;
+			 entry->mem_map[mem_var] = m;
+}
+	memv_entry * m = entry->mem_map[mem_var];
+	m->dv +=dop2;
+	m->sv +=op2;
+
+//	printf("memory true 2\n");
+}
 entry->dsum += dop2;
 entry->fsum += op2;
-		//	printf("!!!!!!!!!!!! %lf %f %f %f\n", dadd, fadd, op1, op2);
+
 			if(mem != NULL){
 			  memv_entry ve;
 	  		  ve.dv = dadd;
@@ -526,12 +560,23 @@ entry->fsum += op2;
 //		printf("double %.13lf float %.13f\n", dadd, fadd);
 		}
 		else{
-			double dsub = dop1 - dop2;
-			float fsub = op1 - op2;	
+			double dsub = dop2 - dop1;
+			float fsub = op2 - op1;	
 			lossD = dsub - fsub;
+
+
+			//to initialize to the initial sum at the beginning
+			if(entry->call_count == 0){
+				entry->dsum = dop2;
+				entry->fsum = op2;
+ //				printf("op1 is %f and op2 is %f res is %lf\n", op1,op2, dsub);
+			}
+
+
+//op1 is subtrahend(b); a - b = c 
+//			printf("diff of double and float is %.13lf op1 is %f op2 is %f\n", lossD, op1, op2);
 		}
 
-//		printf("diff of double and float is %.13lf\n", lossD);
 	}
 	else{
 		double op1, op2;
@@ -553,7 +598,7 @@ entry->fsum += op2;
 	print_address(entry, bits, loss, lossD);
 }
 
-inner_hash_entry *get_inner_hash_entry(app_pc addr, bool memory)
+inner_hash_entry *get_inner_hash_entry(app_pc addr, bool memory, float* mem_var)
 {
     char sbuf[sizeof(drsym_info_t) + MAX_SYM_RESULT];
     module_data_t *data = dr_lookup_module(addr);
@@ -610,8 +655,12 @@ memory_used += 44;
           inVal->sum_of_bits = 0;
 	  inVal->sum_of_loss = 0;
 	  inVal->use_vector = true;
-//	  inVal->sum_of_squares = 0;
-//         inVal->sum_of_cubes = 0;
+if(memory){
+	memv_entry* m = new memv_entry();
+	m->dv = 0;
+	m->sv = 0;
+	inVal->mem_map[mem_var] = m;
+}
 inVal->fsum = 0;
 inVal->dsum = 0;
 inVal->memory = memory;
@@ -653,27 +702,35 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 	double lossD = 0;
 	if(is_single_precision_instr(opcode)){
    		float op1, op2;
-//   		printf("Mem reg contents: %f\n", *(float*)(mem_reg + displacement));
    		op2 = *(float*)(mem_reg + displacement);
 //		for(r=0; r<16; ++r)
 //			for(s=0; s<4; ++s)
 //		     		printf("reg %i.%i: %f\n", r, s, 
 //					*((float*) &mcontext.ymm[r].u32[s]));
 		op1 = *((float*) &mcontext.ymm[regId].u32[0]);
-  // 		dr_fprintf(logF, "%d: %f  %f\n",opcode, op1, op2);
+
+
 		int exp1, exp2;
 		float mant1, mant2;
 		mant1 = frexpf(op1, &exp1);
 		mant2 = frexpf(op2, &exp2);
 		bits = abs(exp1-exp2);
-
-
+//source can be mem or reg; dest is reg
 		double dop1 = op1;
 		double dop2 = op2;
 		if(opcode == OP_addss){
 			double dadd = dop1 + dop2;
 			float fadd = op1 + op2;
 			lossD = dadd - fadd;
+
+			//to initialize to the initial sum at the beginning
+			if(entry->call_count == 0){
+				entry->dsum = op1;
+				entry->fsum = op1;
+//				printf("op1 is %f and op2 is %f\n", op1,op2);
+			}
+
+
 entry->fsum += op2;
 entry->dsum += dop2;
   			if(mem != NULL){
@@ -691,6 +748,14 @@ entry->dsum += dop2;
 			double dsub = dop1 - dop2;
 			float fsub = op1 - op2;	
 			lossD = dsub - fsub;
+//op1 is subtrahend(b); a - b = c 
+	 		//to initialize to the initial sum at the beginning
+			if(entry->call_count == 0){
+				entry->dsum = op1;
+				entry->fsum = op1;
+//				printf("op1 is %f and op2 is %f\n", op1,op2);
+			}
+
 		}
 //		printf("diff of double and float is %.13lf\n", lossD);
 	}
@@ -734,12 +799,13 @@ bool compare_memory_operands(opnd_t op1, opnd_t op2){
 static dr_emit_flags_t
 bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
+//printf("BEGINNING OF BB_EVENT\n");
     instr_t *instr, *next_instr;
     int opcode;
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         opcode = instr_get_opcode(instr);
-
+//printf("each instruction\n");
 	mem_map_entry* mem = NULL;
         app_pc pc_addr = instr_get_app_pc(instr);
 	
@@ -760,9 +826,10 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source1 = instr_get_src(instr,0);
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
-reg_id_t glreg = NULL;
+float * addr = NULL;
+
 	bool found_mem = false;
-if (testmap.find(pc_addr) == testmap.end()) {
+//if (testmap.find(pc_addr) == testmap.end()) {
 
 //printf("??????????? pc in testmap not found\n");
 
@@ -831,13 +898,11 @@ if (testmap.find(pc_addr) == testmap.end()) {
 		    mem->dsum = 0;
 		    mem->fsum = 0;
 		   */ 
-		    float * addr = NULL;
 		    if(opnd_is_rel_addr(mem_addr)){
 		      addr = (float*)opnd_get_addr(mem_addr);
-           		printf("RELATIVE ADDRESS CASE: "PIFX"\n", addr);	
+          		printf("RELATIVE ADDRESS CASE: "PIFX"\n", addr);	
 			     if(addr == 0)
 				printf("0 in relative addr\n\n\n");
-		      //printf("rel "PIFX" \n", opnd_get_addr(mem_addr));
 		    }
 		    else{
 
@@ -850,12 +915,10 @@ if (testmap.find(pc_addr) == testmap.end()) {
 		      reg_t mem_reg = reg_get_value(reg, &mcontext);
 	              int displacement = opnd_get_disp(mem_addr);
    		      addr = (float*)(mem_reg + displacement);
-//glreg = reg;
-//printf("REGISTER USED IS %s\n", get_register_name(glreg));
-		printf("OTHER ADDRESS CASE: "PIFX"  reg is  %s disp %d\n", addr, get_register_name(reg), displacement);	
+
+		printf("OTHER ADDRESS CASE: "PIFX"  reg is  %s disp %d "PIFX" \n", addr, get_register_name(reg), displacement, instr_get_app_pc(instr));	
 			if(addr == 0)
 				printf("0 in address ref addr\n\n\n");
-		    //  void * a =  opnd_get_addr(mem_addr);
 		    }
 /*
 
@@ -870,21 +933,20 @@ testmap[pc_addr] = found_mem;
 
 	        }
 
-}
+//uncomment this}
 //else{
 //float * b = testmap[pc_addr];
 //mem = memorymap[b];
 //}
 	
 
-	
-               if(opnd_is_memory_reference(source1)){
+                        if(opnd_is_memory_reference(source1)){
 	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
 //			dr_print_opnd(drcontext, logF, source1, "OPND1: ");
 //			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
-                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem);
+                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem, addr);
 			dr_insert_clean_call(drcontext, bb, instr, 
 				(void*) callback, true, 6, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
@@ -893,15 +955,15 @@ testmap[pc_addr] = found_mem;
 
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
-			reg_id_t reg1 = opnd_get_reg(source1);
-			reg_id_t reg2 = opnd_get_reg(source2);
-                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem);
-
+			reg_id_t reg1 = opnd_get_reg(source1); //source
+			reg_id_t reg2 = opnd_get_reg(source2); //dest
+                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem, addr);
+		//	printf("Before getregreg in bbevent\n");
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
 				true, 6, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
 				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry), OPND_CREATE_INTPTR(mem)
-				,OPND_CREATE_INTPTR(glreg)
+				,OPND_CREATE_INTPTR(addr)	
 			); 
 		}
 		else{

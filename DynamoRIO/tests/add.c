@@ -7,9 +7,9 @@
    void main()
    {
 	int i;
-	for(i = 0; i < 10; i++){
-          p = p+y;
-	}
+	//for(i = 0; i < 10; i++){
+          z = p - 0.123;
+	//}
 
        printf("p = %f\t\ty = %f\n",p,y);
    }

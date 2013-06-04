@@ -1,13 +1,14 @@
 	.file	"main.c"
 	.text
 .Ltext0:
-	.comm	A,680,32
+	.comm	A,40000,32
+	.comm	B,40000,32
 	.globl	rand_FloatRange
 	.type	rand_FloatRange, @function
 rand_FloatRange:
 .LFB0:
 	.file 1 "main.c"
-	.loc 1 18 0
+	.loc 1 19 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI0:
@@ -19,7 +20,7 @@ rand_FloatRange:
 	subq	$16, %rsp
 	movss	%xmm0, -4(%rbp)
 	movss	%xmm1, -8(%rbp)
-	.loc 1 19 0
+	.loc 1 20 0
 	movss	-8(%rbp), %xmm0
 	movaps	%xmm0, %xmm1
 	subss	-4(%rbp), %xmm1
@@ -30,7 +31,7 @@ rand_FloatRange:
 	divss	%xmm1, %xmm0
 	mulss	-12(%rbp), %xmm0
 	addss	-4(%rbp), %xmm0
-	.loc 1 20 0
+	.loc 1 21 0
 	leave
 .LCFI2:
 	.cfi_def_cfa 7, 8
@@ -42,7 +43,7 @@ rand_FloatRange:
 	.type	fillRand, @function
 fillRand:
 .LFB1:
-	.loc 1 23 0
+	.loc 1 24 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI3:
@@ -58,17 +59,17 @@ fillRand:
 	movl	%edx, -48(%rbp)
 	movss	%xmm0, -52(%rbp)
 	movss	%xmm1, -56(%rbp)
-	.loc 1 24 0
+	.loc 1 25 0
 	movl	$123, %edi
 	.cfi_offset 3, -24
 	call	srand
 .LBB2:
-	.loc 1 25 0
+	.loc 1 26 0
 	movl	-44(%rbp), %eax
 	movl	%eax, -20(%rbp)
 	jmp	.L3
 .L4:
-	.loc 1 27 0 discriminator 2
+	.loc 1 28 0 discriminator 2
 	movl	-20(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -78,15 +79,15 @@ fillRand:
 	movss	-52(%rbp), %xmm0
 	call	rand_FloatRange
 	movss	%xmm0, (%rbx)
-	.loc 1 25 0 discriminator 2
+	.loc 1 26 0 discriminator 2
 	addl	$1, -20(%rbp)
 .L3:
-	.loc 1 25 0 is_stmt 0 discriminator 1
+	.loc 1 26 0 is_stmt 0 discriminator 1
 	movl	-20(%rbp), %eax
 	cmpl	-48(%rbp), %eax
 	jl	.L4
 .LBE2:
-	.loc 1 29 0 is_stmt 1
+	.loc 1 30 0 is_stmt 1
 	addq	$56, %rsp
 	popq	%rbx
 	popq	%rbp
@@ -100,7 +101,7 @@ fillRand:
 	.type	compare, @function
 compare:
 .LFB2:
-	.loc 1 30 0
+	.loc 1 31 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI6:
@@ -111,7 +112,7 @@ compare:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -24(%rbp)
 	movq	%rsi, -32(%rbp)
-	.loc 1 30 0
+	.loc 1 31 0
 	movq	-24(%rbp), %rax
 	movl	(%rax), %eax
 	movl	%eax, -8(%rbp)
@@ -133,7 +134,7 @@ compare:
 	.type	fillRandSorted, @function
 fillRandSorted:
 .LFB3:
-	.loc 1 32 0
+	.loc 1 33 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI9:
@@ -148,7 +149,7 @@ fillRandSorted:
 	movl	%edx, -16(%rbp)
 	movss	%xmm0, -20(%rbp)
 	movss	%xmm1, -24(%rbp)
-	.loc 1 33 0
+	.loc 1 34 0
 	movss	-24(%rbp), %xmm1
 	movss	-20(%rbp), %xmm0
 	movl	-16(%rbp), %edx
@@ -157,14 +158,14 @@ fillRandSorted:
 	movl	%ecx, %esi
 	movq	%rax, %rdi
 	call	fillRand
-	.loc 1 35 0
+	.loc 1 36 0
 	movq	-8(%rbp), %rax
 	movl	$compare, %ecx
 	movl	$4, %edx
-	movl	$170, %esi
+	movl	$10000, %esi
 	movq	%rax, %rdi
 	call	qsort
-	.loc 1 36 0
+	.loc 1 37 0
 	leave
 .LCFI11:
 	.cfi_def_cfa 7, 8
@@ -176,7 +177,7 @@ fillRandSorted:
 	.type	fillOnes, @function
 fillOnes:
 .LFB4:
-	.loc 1 39 0
+	.loc 1 40 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI12:
@@ -191,27 +192,27 @@ fillOnes:
 	movss	%xmm0, -36(%rbp)
 	movss	%xmm1, -40(%rbp)
 .LBB3:
-	.loc 1 40 0
+	.loc 1 41 0
 	movl	-28(%rbp), %eax
 	movl	%eax, -4(%rbp)
 	jmp	.L8
 .L9:
-	.loc 1 42 0 discriminator 2
+	.loc 1 43 0 discriminator 2
 	movl	-4(%rbp), %eax
 	cltq
 	salq	$2, %rax
 	addq	-24(%rbp), %rax
 	movl	$0x3f800000, %edx
 	movl	%edx, (%rax)
-	.loc 1 40 0 discriminator 2
+	.loc 1 41 0 discriminator 2
 	addl	$1, -4(%rbp)
 .L8:
-	.loc 1 40 0 is_stmt 0 discriminator 1
+	.loc 1 41 0 is_stmt 0 discriminator 1
 	movl	-4(%rbp), %eax
 	cmpl	-32(%rbp), %eax
 	jl	.L9
 .LBE3:
-	.loc 1 44 0 is_stmt 1
+	.loc 1 45 0 is_stmt 1
 	popq	%rbp
 .LCFI14:
 	.cfi_def_cfa 7, 8
@@ -223,7 +224,7 @@ fillOnes:
 	.type	fsumUp, @function
 fsumUp:
 .LFB5:
-	.loc 1 47 0
+	.loc 1 48 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI15:
@@ -234,15 +235,15 @@ fsumUp:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -24(%rbp)
 	movl	%esi, -28(%rbp)
-	.loc 1 48 0
+	.loc 1 49 0
 	movl	$0x00000000, %eax
 	movl	%eax, -8(%rbp)
 .LBB4:
-	.loc 1 49 0
+	.loc 1 50 0
 	movl	$0, -4(%rbp)
 	jmp	.L11
 .L12:
-	.loc 1 50 0 discriminator 2
+	.loc 1 51 0 discriminator 2
 	movl	-4(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -251,19 +252,19 @@ fsumUp:
 	movss	-8(%rbp), %xmm1
 	addss	%xmm1, %xmm0
 	movss	%xmm0, -8(%rbp)
-	.loc 1 49 0 discriminator 2
+	.loc 1 50 0 discriminator 2
 	addl	$1, -4(%rbp)
 .L11:
-	.loc 1 49 0 is_stmt 0 discriminator 1
+	.loc 1 50 0 is_stmt 0 discriminator 1
 	movl	-4(%rbp), %eax
 	cmpl	-28(%rbp), %eax
 	jl	.L12
 .LBE4:
-	.loc 1 52 0 is_stmt 1
+	.loc 1 53 0 is_stmt 1
 	movl	-8(%rbp), %eax
 	movl	%eax, -32(%rbp)
 	movss	-32(%rbp), %xmm0
-	.loc 1 53 0
+	.loc 1 54 0
 	popq	%rbp
 .LCFI17:
 	.cfi_def_cfa 7, 8
@@ -275,7 +276,7 @@ fsumUp:
 	.type	fsumDown, @function
 fsumDown:
 .LFB6:
-	.loc 1 56 0
+	.loc 1 57 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI18:
@@ -286,17 +287,17 @@ fsumDown:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -24(%rbp)
 	movl	%esi, -28(%rbp)
-	.loc 1 57 0
+	.loc 1 58 0
 	movl	$0x00000000, %eax
 	movl	%eax, -8(%rbp)
 .LBB5:
-	.loc 1 58 0
+	.loc 1 59 0
 	movl	-28(%rbp), %eax
 	subl	$1, %eax
 	movl	%eax, -4(%rbp)
 	jmp	.L14
 .L15:
-	.loc 1 59 0 discriminator 2
+	.loc 1 60 0 discriminator 2
 	movl	-4(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -305,18 +306,18 @@ fsumDown:
 	movss	-8(%rbp), %xmm1
 	addss	%xmm1, %xmm0
 	movss	%xmm0, -8(%rbp)
-	.loc 1 58 0 discriminator 2
+	.loc 1 59 0 discriminator 2
 	subl	$1, -4(%rbp)
 .L14:
-	.loc 1 58 0 is_stmt 0 discriminator 1
+	.loc 1 59 0 is_stmt 0 discriminator 1
 	cmpl	$0, -4(%rbp)
 	jns	.L15
 .LBE5:
-	.loc 1 61 0 is_stmt 1
+	.loc 1 62 0 is_stmt 1
 	movl	-8(%rbp), %eax
 	movl	%eax, -32(%rbp)
 	movss	-32(%rbp), %xmm0
-	.loc 1 62 0
+	.loc 1 63 0
 	popq	%rbp
 .LCFI20:
 	.cfi_def_cfa 7, 8
@@ -328,7 +329,7 @@ fsumDown:
 	.type	dsumUp, @function
 dsumUp:
 .LFB7:
-	.loc 1 65 0
+	.loc 1 66 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI21:
@@ -339,15 +340,15 @@ dsumUp:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -24(%rbp)
 	movl	%esi, -28(%rbp)
-	.loc 1 66 0
+	.loc 1 67 0
 	movl	$0, %eax
 	movq	%rax, -16(%rbp)
 .LBB6:
-	.loc 1 67 0
+	.loc 1 68 0
 	movl	$0, -4(%rbp)
 	jmp	.L17
 .L18:
-	.loc 1 68 0 discriminator 2
+	.loc 1 69 0 discriminator 2
 	movl	-4(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -358,19 +359,19 @@ dsumUp:
 	movsd	-16(%rbp), %xmm1
 	addsd	%xmm1, %xmm0
 	movsd	%xmm0, -16(%rbp)
-	.loc 1 67 0 discriminator 2
+	.loc 1 68 0 discriminator 2
 	addl	$1, -4(%rbp)
 .L17:
-	.loc 1 67 0 is_stmt 0 discriminator 1
+	.loc 1 68 0 is_stmt 0 discriminator 1
 	movl	-4(%rbp), %eax
 	cmpl	-28(%rbp), %eax
 	jl	.L18
 .LBE6:
-	.loc 1 70 0 is_stmt 1
+	.loc 1 71 0 is_stmt 1
 	movq	-16(%rbp), %rax
 	movq	%rax, -40(%rbp)
 	movsd	-40(%rbp), %xmm0
-	.loc 1 71 0
+	.loc 1 72 0
 	popq	%rbp
 .LCFI23:
 	.cfi_def_cfa 7, 8
@@ -382,7 +383,7 @@ dsumUp:
 	.type	dsumDown, @function
 dsumDown:
 .LFB8:
-	.loc 1 74 0
+	.loc 1 75 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI24:
@@ -393,17 +394,17 @@ dsumDown:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -24(%rbp)
 	movl	%esi, -28(%rbp)
-	.loc 1 75 0
+	.loc 1 76 0
 	movl	$0, %eax
 	movq	%rax, -16(%rbp)
 .LBB7:
-	.loc 1 76 0
+	.loc 1 77 0
 	movl	-28(%rbp), %eax
 	subl	$1, %eax
 	movl	%eax, -4(%rbp)
 	jmp	.L20
 .L21:
-	.loc 1 77 0 discriminator 2
+	.loc 1 78 0 discriminator 2
 	movl	-4(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -414,18 +415,18 @@ dsumDown:
 	movsd	-16(%rbp), %xmm1
 	addsd	%xmm1, %xmm0
 	movsd	%xmm0, -16(%rbp)
-	.loc 1 76 0 discriminator 2
+	.loc 1 77 0 discriminator 2
 	subl	$1, -4(%rbp)
 .L20:
-	.loc 1 76 0 is_stmt 0 discriminator 1
+	.loc 1 77 0 is_stmt 0 discriminator 1
 	cmpl	$0, -4(%rbp)
 	jns	.L21
 .LBE7:
-	.loc 1 79 0 is_stmt 1
+	.loc 1 80 0 is_stmt 1
 	movq	-16(%rbp), %rax
 	movq	%rax, -40(%rbp)
 	movsd	-40(%rbp), %xmm0
-	.loc 1 80 0
+	.loc 1 81 0
 	popq	%rbp
 .LCFI26:
 	.cfi_def_cfa 7, 8
@@ -437,7 +438,7 @@ dsumDown:
 	.type	kahan_summationUp, @function
 kahan_summationUp:
 .LFB9:
-	.loc 1 82 0
+	.loc 1 83 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI27:
@@ -448,19 +449,19 @@ kahan_summationUp:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -40(%rbp)
 	movl	%esi, -44(%rbp)
-	.loc 1 83 0
+	.loc 1 84 0
 	movl	$0x00000000, %eax
 	movl	%eax, -20(%rbp)
-	.loc 1 85 0
+	.loc 1 86 0
 	movl	$0x00000000, %eax
 	movl	%eax, -16(%rbp)
 .LBB8:
-	.loc 1 86 0
+	.loc 1 87 0
 	movl	$0, -12(%rbp)
 	jmp	.L23
 .L24:
 .LBB9:
-	.loc 1 87 0 discriminator 2
+	.loc 1 88 0 discriminator 2
 	movl	-12(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -468,32 +469,32 @@ kahan_summationUp:
 	movss	(%rax), %xmm0
 	subss	-16(%rbp), %xmm0
 	movss	%xmm0, -8(%rbp)
-	.loc 1 88 0 discriminator 2
+	.loc 1 89 0 discriminator 2
 	movss	-20(%rbp), %xmm0
 	addss	-8(%rbp), %xmm0
 	movss	%xmm0, -4(%rbp)
-	.loc 1 89 0 discriminator 2
+	.loc 1 90 0 discriminator 2
 	movss	-4(%rbp), %xmm0
 	subss	-20(%rbp), %xmm0
 	subss	-8(%rbp), %xmm0
 	movss	%xmm0, -16(%rbp)
-	.loc 1 90 0 discriminator 2
+	.loc 1 91 0 discriminator 2
 	movl	-4(%rbp), %eax
 	movl	%eax, -20(%rbp)
 .LBE9:
-	.loc 1 86 0 discriminator 2
+	.loc 1 87 0 discriminator 2
 	addl	$1, -12(%rbp)
 .L23:
-	.loc 1 86 0 is_stmt 0 discriminator 1
+	.loc 1 87 0 is_stmt 0 discriminator 1
 	movl	-12(%rbp), %eax
 	cmpl	-44(%rbp), %eax
 	jl	.L24
 .LBE8:
-	.loc 1 92 0 is_stmt 1
+	.loc 1 93 0 is_stmt 1
 	movl	-20(%rbp), %eax
 	movl	%eax, -48(%rbp)
 	movss	-48(%rbp), %xmm0
-	.loc 1 93 0
+	.loc 1 94 0
 	popq	%rbp
 .LCFI29:
 	.cfi_def_cfa 7, 8
@@ -505,7 +506,7 @@ kahan_summationUp:
 	.type	kahan_summationDown, @function
 kahan_summationDown:
 .LFB10:
-	.loc 1 94 0
+	.loc 1 95 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI30:
@@ -516,21 +517,21 @@ kahan_summationDown:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -40(%rbp)
 	movl	%esi, -44(%rbp)
-	.loc 1 95 0
+	.loc 1 96 0
 	movl	$0x00000000, %eax
 	movl	%eax, -20(%rbp)
-	.loc 1 97 0
+	.loc 1 98 0
 	movl	$0x00000000, %eax
 	movl	%eax, -16(%rbp)
 .LBB10:
-	.loc 1 98 0
+	.loc 1 99 0
 	movl	-44(%rbp), %eax
 	subl	$1, %eax
 	movl	%eax, -12(%rbp)
 	jmp	.L26
 .L27:
 .LBB11:
-	.loc 1 99 0 discriminator 2
+	.loc 1 100 0 discriminator 2
 	movl	-12(%rbp), %eax
 	cltq
 	salq	$2, %rax
@@ -538,31 +539,31 @@ kahan_summationDown:
 	movss	(%rax), %xmm0
 	subss	-16(%rbp), %xmm0
 	movss	%xmm0, -8(%rbp)
-	.loc 1 100 0 discriminator 2
+	.loc 1 101 0 discriminator 2
 	movss	-20(%rbp), %xmm0
 	addss	-8(%rbp), %xmm0
 	movss	%xmm0, -4(%rbp)
-	.loc 1 101 0 discriminator 2
+	.loc 1 102 0 discriminator 2
 	movss	-4(%rbp), %xmm0
 	subss	-20(%rbp), %xmm0
 	subss	-8(%rbp), %xmm0
 	movss	%xmm0, -16(%rbp)
-	.loc 1 102 0 discriminator 2
+	.loc 1 103 0 discriminator 2
 	movl	-4(%rbp), %eax
 	movl	%eax, -20(%rbp)
 .LBE11:
-	.loc 1 98 0 discriminator 2
+	.loc 1 99 0 discriminator 2
 	subl	$1, -12(%rbp)
 .L26:
-	.loc 1 98 0 is_stmt 0 discriminator 1
+	.loc 1 99 0 is_stmt 0 discriminator 1
 	cmpl	$0, -12(%rbp)
 	jns	.L27
 .LBE10:
-	.loc 1 104 0 is_stmt 1
+	.loc 1 105 0 is_stmt 1
 	movl	-20(%rbp), %eax
 	movl	%eax, -48(%rbp)
 	movss	-48(%rbp), %xmm0
-	.loc 1 105 0
+	.loc 1 106 0
 	popq	%rbp
 .LCFI32:
 	.cfi_def_cfa 7, 8
@@ -574,7 +575,7 @@ kahan_summationDown:
 	.type	fsumRecursive, @function
 fsumRecursive:
 .LFB11:
-	.loc 1 106 0
+	.loc 1 107 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI33:
@@ -586,23 +587,23 @@ fsumRecursive:
 	subq	$32, %rsp
 	movq	%rdi, -24(%rbp)
 	movl	%esi, -28(%rbp)
-	.loc 1 107 0
+	.loc 1 108 0
 	cmpl	$0, -28(%rbp)
 	jne	.L29
-	.loc 1 107 0 is_stmt 0 discriminator 1
+	.loc 1 108 0 is_stmt 0 discriminator 1
 	xorps	%xmm0, %xmm0
 	jmp	.L30
 .L29:
-	.loc 1 108 0 is_stmt 1
+	.loc 1 109 0 is_stmt 1
 	cmpl	$1, -28(%rbp)
 	jne	.L31
-	.loc 1 108 0 is_stmt 0 discriminator 1
+	.loc 1 109 0 is_stmt 0 discriminator 1
 	movq	-24(%rbp), %rax
 	movss	(%rax), %xmm0
 	jmp	.L30
 .L31:
 .LBB12:
-	.loc 1 110 0 is_stmt 1
+	.loc 1 111 0 is_stmt 1
 	movl	-28(%rbp), %eax
 	movl	%eax, %edx
 	shrl	$31, %edx
@@ -614,7 +615,7 @@ fsumRecursive:
 	movq	%rax, %rdi
 	call	fsumRecursive
 	movss	%xmm0, -8(%rbp)
-	.loc 1 111 0
+	.loc 1 112 0
 	movl	-28(%rbp), %eax
 	movl	%eax, %edx
 	shrl	$31, %edx
@@ -641,12 +642,12 @@ fsumRecursive:
 	movq	%rax, %rdi
 	call	fsumRecursive
 	movss	%xmm0, -4(%rbp)
-	.loc 1 112 0
+	.loc 1 113 0
 	movss	-8(%rbp), %xmm0
 	addss	-4(%rbp), %xmm0
 .L30:
 .LBE12:
-	.loc 1 114 0
+	.loc 1 115 0
 	leave
 .LCFI35:
 	.cfi_def_cfa 7, 8
@@ -657,14 +658,13 @@ fsumRecursive:
 	.section	.rodata
 	.align 8
 .LC4:
-	.ascii	"Float Up:"
-	.string	" %.13f\n  Down: %.13f\n  Difference %.13f  Diff double UP %.13lf Diff double DOWN %.13lf\n; Double Up: %.13lf\n  Down: %.13lf\n  Difference %.13lf\n; Kahan Up: %.13f\n  Down: %.13f\n  Difference %.13f Diff double Kahan %.13lf\n; Recursive: %.13f\n Difference %.13lf\n"
+	.string	"Float Up: %g  Down: %g  Difference %g; Double Up: %g  Down: %g  Difference %g; Kahan Up: %g  Down: %g  Difference %g; Recursive: %f Difference %g\n"
 	.text
 	.globl	DoTheSummation
 	.type	DoTheSummation, @function
 DoTheSummation:
 .LFB12:
-	.loc 1 118 0
+	.loc 1 119 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI36:
@@ -673,94 +673,82 @@ DoTheSummation:
 	movq	%rsp, %rbp
 .LCFI37:
 	.cfi_def_cfa_register 6
-	subq	$112, %rsp
+	subq	$96, %rsp
 	movq	%rdi, -56(%rbp)
 	movl	%esi, -60(%rbp)
-	.loc 1 120 0
+	.loc 1 131 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	fsumUp
 	movss	%xmm0, -20(%rbp)
-	.loc 1 121 0
+	.loc 1 132 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	fsumDown
 	movss	%xmm0, -16(%rbp)
-	.loc 1 122 0
+	.loc 1 133 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	dsumUp
 	movsd	%xmm0, -40(%rbp)
-	.loc 1 123 0
+	.loc 1 134 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	dsumDown
 	movsd	%xmm0, -32(%rbp)
-	.loc 1 124 0
+	.loc 1 135 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	kahan_summationUp
 	movss	%xmm0, -12(%rbp)
-	.loc 1 125 0
+	.loc 1 136 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	kahan_summationDown
 	movss	%xmm0, -8(%rbp)
-	.loc 1 126 0
+	.loc 1 137 0
 	movl	-60(%rbp), %edx
 	movq	-56(%rbp), %rax
 	movl	%edx, %esi
 	movq	%rax, %rdi
 	call	fsumRecursive
 	movss	%xmm0, -4(%rbp)
-	.loc 1 127 0
+	.loc 1 138 0
 	movss	-4(%rbp), %xmm0
 	cvtps2pd	%xmm0, %xmm0
-	movapd	%xmm0, %xmm11
-	subsd	-40(%rbp), %xmm11
-	movss	-4(%rbp), %xmm10
-	cvtps2pd	%xmm10, %xmm10
-	movss	-12(%rbp), %xmm0
-	cvtps2pd	%xmm0, %xmm0
-	movapd	%xmm0, %xmm9
-	subsd	-40(%rbp), %xmm9
-	.loc 1 128 0
+	movapd	%xmm0, %xmm8
+	subsd	-40(%rbp), %xmm8
+	movss	-4(%rbp), %xmm7
+	cvtps2pd	%xmm7, %xmm7
+	.loc 1 139 0
 	movss	-8(%rbp), %xmm0
 	subss	-12(%rbp), %xmm0
-	.loc 1 127 0
+	.loc 1 138 0
 	unpcklps	%xmm0, %xmm0
-	cvtps2pd	%xmm0, %xmm8
-	movss	-8(%rbp), %xmm7
-	cvtps2pd	%xmm7, %xmm7
-	movss	-12(%rbp), %xmm6
-	cvtps2pd	%xmm6, %xmm6
+	cvtps2pd	%xmm0, %xmm6
+	movss	-8(%rbp), %xmm5
+	cvtps2pd	%xmm5, %xmm5
+	movss	-12(%rbp), %xmm4
+	cvtps2pd	%xmm4, %xmm4
 	movsd	-32(%rbp), %xmm0
-	movapd	%xmm0, %xmm5
-	subsd	-40(%rbp), %xmm5
-	movss	-16(%rbp), %xmm0
-	cvtps2pd	%xmm0, %xmm0
-	movapd	%xmm0, %xmm4
-	subsd	-40(%rbp), %xmm4
-	movss	-20(%rbp), %xmm0
-	cvtps2pd	%xmm0, %xmm0
 	movapd	%xmm0, %xmm3
 	subsd	-40(%rbp), %xmm3
-	.loc 1 128 0
+	.loc 1 139 0
 	movss	-16(%rbp), %xmm0
 	subss	-20(%rbp), %xmm0
-	.loc 1 127 0
+	.loc 1 138 0
 	unpcklps	%xmm0, %xmm0
 	cvtps2pd	%xmm0, %xmm2
 	movss	-16(%rbp), %xmm1
@@ -768,21 +756,20 @@ DoTheSummation:
 	movss	-20(%rbp), %xmm0
 	cvtps2pd	%xmm0, %xmm0
 	movl	$.LC4, %eax
-	movsd	-32(%rbp), %xmm13
-	movsd	-40(%rbp), %xmm12
-	movsd	%xmm11, 40(%rsp)
-	movsd	%xmm10, 32(%rsp)
-	movsd	%xmm9, 24(%rsp)
+	movsd	-32(%rbp), %xmm10
+	movsd	-40(%rbp), %xmm9
 	movsd	%xmm8, 16(%rsp)
 	movsd	%xmm7, 8(%rsp)
 	movsd	%xmm6, (%rsp)
 	movapd	%xmm5, %xmm7
-	movapd	%xmm13, %xmm6
-	movapd	%xmm12, %xmm5
+	movapd	%xmm4, %xmm6
+	movapd	%xmm3, %xmm5
+	movapd	%xmm10, %xmm4
+	movapd	%xmm9, %xmm3
 	movq	%rax, %rdi
 	movl	$8, %eax
 	call	printf
-	.loc 1 133 0
+	.loc 1 144 0
 	leave
 .LCFI38:
 	.cfi_def_cfa 7, 8
@@ -794,7 +781,7 @@ DoTheSummation:
 	.type	printItForDebug, @function
 printItForDebug:
 .LFB13:
-	.loc 1 136 0
+	.loc 1 147 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI39:
@@ -805,7 +792,7 @@ printItForDebug:
 	.cfi_def_cfa_register 6
 	movq	%rdi, -8(%rbp)
 	movl	%esi, -12(%rbp)
-	.loc 1 142 0
+	.loc 1 153 0
 	popq	%rbp
 .LCFI41:
 	.cfi_def_cfa 7, 8
@@ -815,15 +802,13 @@ printItForDebug:
 	.size	printItForDebug, .-printItForDebug
 	.section	.rodata
 .LC5:
-	.string	"Rand:      "
-.LC8:
-	.string	"ENd of FIll rand"
+	.string	"Rand B:      "
 	.text
 	.globl	main
 	.type	main, @function
 main:
 .LFB14:
-	.loc 1 144 0
+	.loc 1 155 0
 	.cfi_startproc
 	pushq	%rbp
 .LCFI42:
@@ -835,30 +820,36 @@ main:
 	subq	$16, %rsp
 	movl	%edi, -4(%rbp)
 	movq	%rsi, -16(%rbp)
-	.loc 1 153 0
-	movl	$.LC5, %edi
-	call	puts
-	.loc 1 154 0
-	movss	.LC6(%rip), %xmm1
-	movss	.LC7(%rip), %xmm0
-	movl	$170, %edx
-	movl	$0, %esi
-	movl	$A, %edi
-	call	fillRand
-	.loc 1 155 0
-	movl	$.LC8, %edi
-	call	puts
-	.loc 1 156 0
-	movl	$170, %esi
-	movl	$A, %edi
-	call	DoTheSummation
-	.loc 1 157 0
-	movl	$170, %esi
-	movl	$A, %edi
-	call	printItForDebug
-	.loc 1 166 0
-	movl	$0, %eax
 	.loc 1 167 0
+	movl	$.LC5, %eax
+	movq	%rax, %rdi
+	movl	$0, %eax
+	call	printf
+	.loc 1 168 0
+	movss	.LC6(%rip), %xmm1
+	xorps	%xmm0, %xmm0
+	movl	$5000, %edx
+	movl	$0, %esi
+	movl	$B, %edi
+	call	fillRand
+	.loc 1 169 0
+	movss	.LC7(%rip), %xmm1
+	movss	.LC8(%rip), %xmm0
+	movl	$10000, %edx
+	movl	$5000, %esi
+	movl	$B, %edi
+	call	fillRand
+	.loc 1 170 0
+	movl	$10000, %esi
+	movl	$B, %edi
+	call	DoTheSummation
+	.loc 1 171 0
+	movl	$10000, %esi
+	movl	$B, %edi
+	call	printItForDebug
+	.loc 1 181 0
+	movl	$0, %eax
+	.loc 1 182 0
 	leave
 .LCFI44:
 	.cfi_def_cfa 7, 8
@@ -872,15 +863,18 @@ main:
 	.long	1325400064
 	.align 4
 .LC6:
-	.long	1176256512
+	.long	1092616192
 	.align 4
 .LC7:
-	.long	3323740160
+	.long	1203982336
+	.align 4
+.LC8:
+	.long	1148846080
 	.text
 .Letext0:
 	.section	.debug_info,"",@progbits
 .Ldebug_info0:
-	.long	0x73a
+	.long	0x74f
 	.value	0x2
 	.long	.Ldebug_abbrev0
 	.byte	0x8
@@ -945,7 +939,7 @@ main:
 	.byte	0x1
 	.long	.LASF12
 	.byte	0x1
-	.byte	0x11
+	.byte	0x12
 	.byte	0x1
 	.long	0xc3
 	.quad	.LFB0
@@ -955,7 +949,7 @@ main:
 	.uleb128 0x8
 	.string	"a"
 	.byte	0x1
-	.byte	0x11
+	.byte	0x12
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -963,7 +957,7 @@ main:
 	.uleb128 0x8
 	.string	"b"
 	.byte	0x1
-	.byte	0x11
+	.byte	0x12
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -977,7 +971,7 @@ main:
 	.byte	0x1
 	.long	.LASF14
 	.byte	0x1
-	.byte	0x16
+	.byte	0x17
 	.byte	0x1
 	.quad	.LFB1
 	.quad	.LFE1
@@ -986,7 +980,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x16
+	.byte	0x17
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -994,7 +988,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF10
 	.byte	0x1
-	.byte	0x16
+	.byte	0x17
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1002,7 +996,7 @@ main:
 	.uleb128 0x8
 	.string	"end"
 	.byte	0x1
-	.byte	0x16
+	.byte	0x17
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1010,7 +1004,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF11
 	.byte	0x1
-	.byte	0x16
+	.byte	0x17
 	.long	0xc3
 	.byte	0x3
 	.byte	0x91
@@ -1018,7 +1012,7 @@ main:
 	.uleb128 0x8
 	.string	"to"
 	.byte	0x1
-	.byte	0x16
+	.byte	0x17
 	.long	0xc3
 	.byte	0x3
 	.byte	0x91
@@ -1029,7 +1023,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x19
+	.byte	0x1a
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1043,7 +1037,7 @@ main:
 	.byte	0x1
 	.long	.LASF13
 	.byte	0x1
-	.byte	0x1e
+	.byte	0x1f
 	.byte	0x1
 	.long	0x57
 	.quad	.LFB2
@@ -1053,7 +1047,7 @@ main:
 	.uleb128 0x8
 	.string	"av"
 	.byte	0x1
-	.byte	0x1e
+	.byte	0x1f
 	.long	0x7e
 	.byte	0x2
 	.byte	0x91
@@ -1061,7 +1055,7 @@ main:
 	.uleb128 0x8
 	.string	"bv"
 	.byte	0x1
-	.byte	0x1e
+	.byte	0x1f
 	.long	0x7e
 	.byte	0x2
 	.byte	0x91
@@ -1069,7 +1063,7 @@ main:
 	.uleb128 0xc
 	.string	"af"
 	.byte	0x1
-	.byte	0x1e
+	.byte	0x1f
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1077,7 +1071,7 @@ main:
 	.uleb128 0xc
 	.string	"bf"
 	.byte	0x1
-	.byte	0x1e
+	.byte	0x1f
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1087,7 +1081,7 @@ main:
 	.byte	0x1
 	.long	.LASF15
 	.byte	0x1
-	.byte	0x1f
+	.byte	0x20
 	.byte	0x1
 	.quad	.LFB3
 	.quad	.LFE3
@@ -1096,7 +1090,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x1f
+	.byte	0x20
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1104,7 +1098,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF10
 	.byte	0x1
-	.byte	0x1f
+	.byte	0x20
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1112,7 +1106,7 @@ main:
 	.uleb128 0x8
 	.string	"end"
 	.byte	0x1
-	.byte	0x1f
+	.byte	0x20
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1120,7 +1114,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF11
 	.byte	0x1
-	.byte	0x1f
+	.byte	0x20
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1128,7 +1122,7 @@ main:
 	.uleb128 0x8
 	.string	"to"
 	.byte	0x1
-	.byte	0x1f
+	.byte	0x20
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1138,7 +1132,7 @@ main:
 	.byte	0x1
 	.long	.LASF16
 	.byte	0x1
-	.byte	0x26
+	.byte	0x27
 	.byte	0x1
 	.quad	.LFB4
 	.quad	.LFE4
@@ -1147,7 +1141,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x26
+	.byte	0x27
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1155,7 +1149,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF10
 	.byte	0x1
-	.byte	0x26
+	.byte	0x27
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1163,7 +1157,7 @@ main:
 	.uleb128 0x8
 	.string	"end"
 	.byte	0x1
-	.byte	0x26
+	.byte	0x27
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1171,7 +1165,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF11
 	.byte	0x1
-	.byte	0x26
+	.byte	0x27
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1179,7 +1173,7 @@ main:
 	.uleb128 0x8
 	.string	"to"
 	.byte	0x1
-	.byte	0x26
+	.byte	0x27
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1190,7 +1184,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x28
+	.byte	0x29
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1201,7 +1195,7 @@ main:
 	.byte	0x1
 	.long	.LASF17
 	.byte	0x1
-	.byte	0x2e
+	.byte	0x2f
 	.byte	0x1
 	.long	0xc3
 	.quad	.LFB5
@@ -1211,7 +1205,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x2e
+	.byte	0x2f
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1219,7 +1213,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x2e
+	.byte	0x2f
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1227,7 +1221,7 @@ main:
 	.uleb128 0xc
 	.string	"r"
 	.byte	0x1
-	.byte	0x30
+	.byte	0x31
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1238,7 +1232,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x31
+	.byte	0x32
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1249,7 +1243,7 @@ main:
 	.byte	0x1
 	.long	.LASF19
 	.byte	0x1
-	.byte	0x37
+	.byte	0x38
 	.byte	0x1
 	.long	0xc3
 	.quad	.LFB6
@@ -1259,7 +1253,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x37
+	.byte	0x38
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1267,7 +1261,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x37
+	.byte	0x38
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1275,7 +1269,7 @@ main:
 	.uleb128 0xc
 	.string	"r"
 	.byte	0x1
-	.byte	0x39
+	.byte	0x3a
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1286,7 +1280,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x3a
+	.byte	0x3b
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1297,7 +1291,7 @@ main:
 	.byte	0x1
 	.long	.LASF20
 	.byte	0x1
-	.byte	0x40
+	.byte	0x41
 	.byte	0x1
 	.long	0x3d5
 	.quad	.LFB7
@@ -1307,7 +1301,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x40
+	.byte	0x41
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1315,7 +1309,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x40
+	.byte	0x41
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1323,7 +1317,7 @@ main:
 	.uleb128 0xc
 	.string	"r"
 	.byte	0x1
-	.byte	0x42
+	.byte	0x43
 	.long	0x3d5
 	.byte	0x2
 	.byte	0x91
@@ -1334,7 +1328,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x43
+	.byte	0x44
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1349,7 +1343,7 @@ main:
 	.byte	0x1
 	.long	.LASF22
 	.byte	0x1
-	.byte	0x49
+	.byte	0x4a
 	.byte	0x1
 	.long	0x3d5
 	.quad	.LFB8
@@ -1359,7 +1353,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x49
+	.byte	0x4a
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1367,7 +1361,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x49
+	.byte	0x4a
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1375,7 +1369,7 @@ main:
 	.uleb128 0xc
 	.string	"r"
 	.byte	0x1
-	.byte	0x4b
+	.byte	0x4c
 	.long	0x3d5
 	.byte	0x2
 	.byte	0x91
@@ -1386,7 +1380,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x4c
+	.byte	0x4d
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1397,7 +1391,7 @@ main:
 	.byte	0x1
 	.long	.LASF23
 	.byte	0x1
-	.byte	0x52
+	.byte	0x53
 	.byte	0x1
 	.long	0xc3
 	.quad	.LFB9
@@ -1407,7 +1401,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x52
+	.byte	0x53
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1415,7 +1409,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x52
+	.byte	0x53
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1423,7 +1417,7 @@ main:
 	.uleb128 0xd
 	.long	.LASF24
 	.byte	0x1
-	.byte	0x53
+	.byte	0x54
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1431,7 +1425,7 @@ main:
 	.uleb128 0xc
 	.string	"c"
 	.byte	0x1
-	.byte	0x55
+	.byte	0x56
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1442,7 +1436,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x56
+	.byte	0x57
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1453,7 +1447,7 @@ main:
 	.uleb128 0xc
 	.string	"y"
 	.byte	0x1
-	.byte	0x57
+	.byte	0x58
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1461,7 +1455,7 @@ main:
 	.uleb128 0xc
 	.string	"t"
 	.byte	0x1
-	.byte	0x58
+	.byte	0x59
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1473,7 +1467,7 @@ main:
 	.byte	0x1
 	.long	.LASF25
 	.byte	0x1
-	.byte	0x5e
+	.byte	0x5f
 	.byte	0x1
 	.long	0xc3
 	.quad	.LFB10
@@ -1483,7 +1477,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x5e
+	.byte	0x5f
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1491,7 +1485,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x5e
+	.byte	0x5f
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1499,7 +1493,7 @@ main:
 	.uleb128 0xd
 	.long	.LASF24
 	.byte	0x1
-	.byte	0x5f
+	.byte	0x60
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1507,7 +1501,7 @@ main:
 	.uleb128 0xc
 	.string	"c"
 	.byte	0x1
-	.byte	0x61
+	.byte	0x62
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1518,7 +1512,7 @@ main:
 	.uleb128 0xc
 	.string	"i"
 	.byte	0x1
-	.byte	0x62
+	.byte	0x63
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1529,7 +1523,7 @@ main:
 	.uleb128 0xc
 	.string	"y"
 	.byte	0x1
-	.byte	0x63
+	.byte	0x64
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1537,7 +1531,7 @@ main:
 	.uleb128 0xc
 	.string	"t"
 	.byte	0x1
-	.byte	0x64
+	.byte	0x65
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1549,7 +1543,7 @@ main:
 	.byte	0x1
 	.long	.LASF26
 	.byte	0x1
-	.byte	0x6a
+	.byte	0x6b
 	.byte	0x1
 	.long	0xc3
 	.quad	.LFB11
@@ -1559,7 +1553,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x6a
+	.byte	0x6b
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1567,7 +1561,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x6a
+	.byte	0x6b
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1578,7 +1572,7 @@ main:
 	.uleb128 0xc
 	.string	"r1"
 	.byte	0x1
-	.byte	0x6e
+	.byte	0x6f
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1586,7 +1580,7 @@ main:
 	.uleb128 0xc
 	.string	"r2"
 	.byte	0x1
-	.byte	0x6f
+	.byte	0x70
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1597,7 +1591,7 @@ main:
 	.byte	0x1
 	.long	.LASF27
 	.byte	0x1
-	.byte	0x75
+	.byte	0x76
 	.byte	0x1
 	.quad	.LFB12
 	.quad	.LFE12
@@ -1606,7 +1600,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x75
+	.byte	0x76
 	.long	0x14f
 	.byte	0x3
 	.byte	0x91
@@ -1614,7 +1608,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x75
+	.byte	0x76
 	.long	0x57
 	.byte	0x3
 	.byte	0x91
@@ -1622,7 +1616,7 @@ main:
 	.uleb128 0xc
 	.string	"fr1"
 	.byte	0x1
-	.byte	0x78
+	.byte	0x83
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1630,7 +1624,7 @@ main:
 	.uleb128 0xc
 	.string	"fr2"
 	.byte	0x1
-	.byte	0x79
+	.byte	0x84
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1638,7 +1632,7 @@ main:
 	.uleb128 0xc
 	.string	"dr1"
 	.byte	0x1
-	.byte	0x7a
+	.byte	0x85
 	.long	0x3d5
 	.byte	0x2
 	.byte	0x91
@@ -1646,7 +1640,7 @@ main:
 	.uleb128 0xc
 	.string	"dr2"
 	.byte	0x1
-	.byte	0x7b
+	.byte	0x86
 	.long	0x3d5
 	.byte	0x2
 	.byte	0x91
@@ -1654,7 +1648,7 @@ main:
 	.uleb128 0xc
 	.string	"kr1"
 	.byte	0x1
-	.byte	0x7c
+	.byte	0x87
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1662,7 +1656,7 @@ main:
 	.uleb128 0xc
 	.string	"kr2"
 	.byte	0x1
-	.byte	0x7d
+	.byte	0x88
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1670,7 +1664,7 @@ main:
 	.uleb128 0xc
 	.string	"rr"
 	.byte	0x1
-	.byte	0x7e
+	.byte	0x89
 	.long	0xc3
 	.byte	0x2
 	.byte	0x91
@@ -1680,7 +1674,7 @@ main:
 	.byte	0x1
 	.long	.LASF28
 	.byte	0x1
-	.byte	0x87
+	.byte	0x92
 	.byte	0x1
 	.quad	.LFB13
 	.quad	.LFE13
@@ -1689,7 +1683,7 @@ main:
 	.uleb128 0x8
 	.string	"A"
 	.byte	0x1
-	.byte	0x87
+	.byte	0x92
 	.long	0x14f
 	.byte	0x2
 	.byte	0x91
@@ -1697,7 +1691,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF18
 	.byte	0x1
-	.byte	0x87
+	.byte	0x92
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1707,7 +1701,7 @@ main:
 	.byte	0x1
 	.long	.LASF29
 	.byte	0x1
-	.byte	0x90
+	.byte	0x9b
 	.byte	0x1
 	.long	0x57
 	.quad	.LFB14
@@ -1717,7 +1711,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF30
 	.byte	0x1
-	.byte	0x90
+	.byte	0x9b
 	.long	0x57
 	.byte	0x2
 	.byte	0x91
@@ -1725,7 +1719,7 @@ main:
 	.uleb128 0xa
 	.long	.LASF31
 	.byte	0x1
-	.byte	0x90
+	.byte	0x9b
 	.long	0x713
 	.byte	0x2
 	.byte	0x91
@@ -1736,10 +1730,10 @@ main:
 	.long	0x6c
 	.uleb128 0xe
 	.long	0xc3
-	.long	0x729
+	.long	0x72a
 	.uleb128 0xf
 	.long	0x2d
-	.byte	0xa9
+	.value	0x270f
 	.byte	0
 	.uleb128 0x10
 	.string	"A"
@@ -1750,6 +1744,15 @@ main:
 	.byte	0x9
 	.byte	0x3
 	.quad	A
+	.uleb128 0x10
+	.string	"B"
+	.byte	0x1
+	.byte	0x10
+	.long	0x719
+	.byte	0x1
+	.byte	0x9
+	.byte	0x3
+	.quad	B
 	.byte	0
 	.section	.debug_abbrev,"",@progbits
 .Ldebug_abbrev0:
@@ -1947,7 +1950,7 @@ main:
 	.uleb128 0x49
 	.uleb128 0x13
 	.uleb128 0x2f
-	.uleb128 0xb
+	.uleb128 0x5
 	.byte	0
 	.byte	0
 	.uleb128 0x10

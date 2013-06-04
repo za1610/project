@@ -22,7 +22,7 @@ y:
 z:
 	.zero	4
 	.section	.rodata
-.LC0:
+.LC1:
 	.string	"p = %f\t\ty = %f\n"
 	.text
 	.globl	main
@@ -39,45 +39,44 @@ main:
 	movq	%rsp, %rbp
 .LCFI1:
 	.cfi_def_cfa_register 6
-	subq	$16, %rsp
-	.loc 1 10 0
-	movl	$0, -4(%rbp)
-	jmp	.L2
-.L3:
-	.loc 1 11 0 discriminator 2
-	movss	p(%rip), %xmm1
-	movss	y(%rip), %xmm0
-	addss	%xmm1, %xmm0
-	movss	%xmm0, p(%rip)
-	.loc 1 10 0 discriminator 2
-	addl	$1, -4(%rbp)
-.L2:
-	.loc 1 10 0 is_stmt 0 discriminator 1
-	cmpl	$9, -4(%rbp)
-	jle	.L3
-	.loc 1 14 0 is_stmt 1
+	.loc 1 11 0
+	movss	p(%rip), %xmm0
+	unpcklps	%xmm0, %xmm0
+	cvtps2pd	%xmm0, %xmm0
+	movsd	.LC0(%rip), %xmm1
+	subsd	%xmm1, %xmm0
+	unpcklpd	%xmm0, %xmm0
+	cvtpd2ps	%xmm0, %xmm0
+	movss	%xmm0, z(%rip)
+	.loc 1 14 0
 	movss	y(%rip), %xmm0
 	unpcklps	%xmm0, %xmm0
 	cvtps2pd	%xmm0, %xmm1
 	movss	p(%rip), %xmm0
 	unpcklps	%xmm0, %xmm0
 	cvtps2pd	%xmm0, %xmm0
-	movl	$.LC0, %eax
+	movl	$.LC1, %eax
 	movq	%rax, %rdi
 	movl	$2, %eax
 	call	printf
 	.loc 1 15 0
-	leave
+	popq	%rbp
 .LCFI2:
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
 .LFE0:
 	.size	main, .-main
+	.section	.rodata
+	.align 8
+.LC0:
+	.long	2439541424
+	.long	1069513965
+	.text
 .Letext0:
 	.section	.debug_info,"",@progbits
 .Ldebug_info0:
-	.long	0xd9
+	.long	0xd6
 	.value	0x2
 	.long	.Ldebug_abbrev0
 	.byte	0x8
@@ -133,21 +132,18 @@ main:
 	.quad	.LFB0
 	.quad	.LFE0
 	.long	.LLST0
-	.long	0x99
+	.long	0x96
 	.uleb128 0x5
 	.string	"i"
 	.byte	0x1
 	.byte	0x9
 	.long	0x57
-	.byte	0x2
-	.byte	0x91
-	.sleb128 -20
 	.byte	0
 	.uleb128 0x6
 	.string	"p"
 	.byte	0x1
 	.byte	0x3
-	.long	0xad
+	.long	0xaa
 	.byte	0x1
 	.byte	0x9
 	.byte	0x3
@@ -160,7 +156,7 @@ main:
 	.string	"y"
 	.byte	0x1
 	.byte	0x4
-	.long	0xad
+	.long	0xaa
 	.byte	0x1
 	.byte	0x9
 	.byte	0x3
@@ -169,7 +165,7 @@ main:
 	.string	"z"
 	.byte	0x1
 	.byte	0x5
-	.long	0xad
+	.long	0xaa
 	.byte	0x1
 	.byte	0x9
 	.byte	0x3
@@ -250,8 +246,6 @@ main:
 	.uleb128 0xb
 	.uleb128 0x49
 	.uleb128 0x13
-	.uleb128 0x2
-	.uleb128 0xa
 	.byte	0
 	.byte	0
 	.uleb128 0x6

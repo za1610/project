@@ -3,16 +3,17 @@
 
 //#define DEBUG
 
-#ifdef DEBUG
-#define SIZE 11
-#else
-#define SIZE 170
-#endif
+//#ifdef DEBUG
+//#define SIZE 11
+//#else
+#define SIZE 10000
+//#endif
 
 #define FLOATTYPE float
 
 
 FLOATTYPE A[SIZE];
+FLOATTYPE B[SIZE];
 
 float rand_FloatRange(float a, float b)
 {
@@ -116,20 +117,33 @@ float fsumRecursive(FLOATTYPE A[], int size) {
 
 void DoTheSummation(FLOATTYPE A[], int size)
 {
+/*	float fr1 = fsumUp(A, size);
+	float fr2 = fsumDown(A, size);
+	float dr1 = dsumUp(A, size);
+	float dr2 = dsumDown(A, size);
+	float kr1 = kahan_summationUp(A, size);
+	float kr2 = kahan_summationDown(A, size);
+	float rr = fsumRecursive(A, size);
+	printf("Float Up: %g  Down: %g  Difference %g; Double Up: %g  Down: %g  Difference %g; Kahan Up: %g  Down: %g  Difference %g; Recursive: %f Difference %g\n", 
+		   fr1, fr2, fr2-fr1, dr1, dr2, dr2-dr1, kr1, kr2, kr2-kr1, rr, rr-dr1);
+*/
 
 	float fr1 = fsumUp(A, size);
+	//float ffr1 = fsumUp(A, size);
 	float fr2 = fsumDown(A, size);
-	double dr1 = dsumUp(A, size);
-	double dr2 = dsumDown(A, size);
-	float kr1 = kahan_summationUp(A, size);
-	float kr2 = kahan_summationDown(A, size);	
-	float rr = fsumRecursive(A, size);
-	printf("Float Up: %.13f\n  Down: %.13f\n  Difference %.13f  Diff double UP %.13lf Diff double DOWN %.13lf\n; Double Up: %.13lf\n  Down: %.13lf\n  Difference %.13lf\n; Kahan Up: %.13f\n  Down: %.13f\n  Difference %.13f Diff double Kahan %.13lf\n; Recursive: %.13f\n Difference %.13lf\n", 
-		   fr1, fr2, fr2-fr1, fr1-dr1, fr2 - dr1,dr1, dr2, dr2-dr1, kr1, kr2, kr2-kr1, kr1 - dr1,  rr, rr-dr1);
+//	float ffr2 = fsumDown(A, size);
+	
+	//double dr1 = dsumUp(A, size);
+	//double dr2 = dsumDown(A, size);
+	//float kr1 = kahan_summationUp(A, size);
+	//float kr2 = kahan_summationDown(A, size);	
+	//float rr = fsumRecursive(A, size);
+	//printf("Float Up: %g  Down: %g  Difference %g; Double Up: %g  Down: %g  Difference %g; Kahan Up: %g  Down: %g  Difference %g; Recursive: %f Difference %g\n", 
+	//	   fr1, fr2, fr2-fr1, dr1, dr2, dr2-dr1, kr1, kr2, kr2-kr1, rr, rr-dr1);
 
 
 
-//printf("Float Up: %.13f\n", fr1);
+
 }
 
 void printItForDebug(FLOATTYPE A[], int size)
@@ -142,24 +156,28 @@ void printItForDebug(FLOATTYPE A[], int size)
 }
 
 int main (int argc, const char * argv[]) {
-/*
-	printf("Ones:      \n");
+/*	
+	printf("Ones:      ");
 	fillOnes(A, 0, SIZE, -1.0f, 1.0f);
 	DoTheSummation(A, SIZE);
 	printItForDebug(A, SIZE);
-*/
-
-
-	printf("Rand:      \n");
-	fillRand(A, 0, SIZE, -10000.0f, 10000.0f);
-		printf("ENd of FIll rand\n");
+*/	
+/*	printf("Rand:      ");
+	fillRand(A, 0, SIZE, -1.0f, 1.0f);
 	DoTheSummation(A, SIZE);
 	printItForDebug(A, SIZE);
-	
+*/
+	printf("Rand B:      ");
+	fillRand(B, 0, SIZE/2, 0.0f, 10.0f);
+	fillRand(B, SIZE/2, SIZE, 1000.0f, 1000000.0f);
+	DoTheSummation(B, SIZE);
+	printItForDebug(B, SIZE);
+
+
 
 /*	
-	printf("RandSorted:\n");
-	fillRandSorted(A, 0, SIZE, -10000.0f, 10000.0f);
+	printf("RandSorted:");
+	fillRandSorted(A, 0, SIZE, -1.0f, 1.0f);
 	DoTheSummation(A, SIZE);
 	printItForDebug(A, SIZE);
 */
