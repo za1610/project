@@ -118,8 +118,6 @@ int index;
     bool use_vector;
 bool memory;	
 	double sum_of_loss;
-//	double sum_of_squares;
-//	double sum_of_cubes;
 	long int sum_of_bits;
 } inner_hash_entry;
 
@@ -178,8 +176,8 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 
 		}
 
-   //		printf(" "PIFX" double sum: %.13lf, float sum %.13f number of calls %d\n",entry->addr, entry->dsum, entry->fsum, entry->call_count);  
-  // 		std::for_each(entry->mem_map.begin(), entry->mem_map.end(), &printMemVar);
+  		printf(" "PIFX" double sum: %.13lf, float sum %.13f number of calls %d\n",entry->addr, entry->dsum, entry->fsum, entry->call_count);  
+   		std::for_each(entry->mem_map.begin(), entry->mem_map.end(), &printMemVar);
 	}
 	int i;
 /*  for (std::map<float*,mem_map_entry*>::iterator it=memorymap.begin(); it!=memorymap.end(); ++it){
@@ -484,7 +482,7 @@ writeCallgrind(int thread_id){
        	dr_fprintf(logOut, "version: 1\n");
        	dr_fprintf(logOut, "creator: callgrind-3.6.1-Debian\n");
        	dr_fprintf(logOut, "positions: instr line\n");
-       	dr_fprintf(logOut, "events: Average Max Mean Skewness Mem_MAX Old_Max\n\n\n");
+       	dr_fprintf(logOut, "events: Average_bits Max_bits Mean_diff  Max_diff Accumulative_error\n\n\n");
 }
 
 
@@ -881,7 +879,6 @@ float * addr = NULL;
 	bool found_mem = false;
 //if (testmap.find(pc_addr) == testmap.end()) {
 
-//printf("??????????? pc in testmap not found\n");
 
 		reg_id_t reg_src, reg_dst;
 		reg_dst = opnd_get_reg(source2);
@@ -921,18 +918,57 @@ float * addr = NULL;
 		  int prev_opcode = instr_get_opcode(prev);
 		//if src of addss is memory and equal to the stored address
 		  if(reg_src == NULL ){
-			if(compare_memory_operands(mem_addr, source1)){
-				found_mem = true;
+			while(!found_mem){
+			    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && 
+				opnd_is_reg(instr_get_dst(prev, 0)) ){
+
+				if(compare_memory_operands(instr_get_src(prev, 0), mem_addr)){
+
+                          		if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst){
+						found_mem = true;
+						break;	
+					}
+					else{ //copied to some other regiser
+						break;
+					}
+					
+				}
+				else{
+					if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst){
+						break; //mem is diff, but copied to the register 
+					}
+					else{ //diff mem and reg, not our case
+						prev = instr_get_prev(prev);
+		          			if(prev == NULL)
+			    				break;
+		          			prev_opcode = instr_get_opcode(prev);
+					}
+				}
+			    }
+			    else{
+			    	prev = instr_get_prev(prev);
+		            	if(prev == NULL)
+			    		break;
+		            	prev_opcode = instr_get_opcode(prev);
+			    }
+
+
 			}
-			else{
+
+		//	if(compare_memory_operands(mem_addr, source1)){
+		//		found_mem = true;
+		//	}
+		//	else{
 			//addss operand is memory, but the mov was to another memory address			
 			  //goto callbacks;
-			}
+		//	}
 
 
-//			printf("found the case!!!! %x  \n", opnd_get_addr(mem_addr));
 		  }
-		  while(!found_mem){// && !(reg_src == NULL)){
+		  else{//reg_src is register
+
+
+		  while(!found_mem && !(reg_src == NULL)){
 		    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && 
 			opnd_is_reg(instr_get_dst(prev, 0)) ){
 
@@ -942,7 +978,6 @@ float * addr = NULL;
                           if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst || opnd_get_reg(instr_get_dst(prev, 0)) == reg_src)){
 		        	  found_mem = true;
 //and if memories are the same
-
 
 /*printf("222222 FOUND MEMORY IS TRUE\n\n");
 
@@ -965,7 +1000,6 @@ printf("reg1 %s   reg2 %s\n", get_register_name(reg_src), get_register_name(reg_
 */
 
 
-
 			  }
 			  else{
 		//if address is the same but was copied to another register
@@ -976,11 +1010,77 @@ printf("reg1 %s   reg2 %s\n", get_register_name(reg_src), get_register_name(reg_
 	              }
 		      else{
 		//memory is different
-                        if(opnd_is_reg(instr_get_dst(prev, 0)) && (opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst
-                                 ||  opnd_get_reg(instr_get_dst(prev, 0)) == reg_src)){
-		//register is same, but memory is not
+                        if( opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst){ 
+ 				prev = instr_get_prev(prev);
+		          	     if(prev == NULL)
+			    		break;
+		          	prev_opcode = instr_get_opcode(prev);
+				
+				//look whether other register was copied from that memory
+				while(!found_mem){
+				    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && 
+						opnd_is_reg(instr_get_dst(prev, 0)) ){
+
+					if(compare_memory_operands(instr_get_src(prev, 0), mem_addr)){
+						if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_src){
+							found_mem = true;
+						}
+						else{
+							break;
+						}
+					}
+					else{
+						if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_src){
+							break;
+						}
+					}
+				     }	
+			       	     prev = instr_get_prev(prev);
+		          	     if(prev == NULL)
+			    		break;
+		          	     prev_opcode = instr_get_opcode(prev);
+				
+
+				}
 				break;
 			}
+			else if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_src){
+
+ 				prev = instr_get_prev(prev);
+		          	     if(prev == NULL)
+			    		break;
+		          	prev_opcode = instr_get_opcode(prev);
+				
+				//look whether other register was copied from that memory
+				while(!found_mem){
+				    if(prev_opcode == OP_movss && opnd_is_memory_reference(instr_get_src(prev, 0)) && 
+						opnd_is_reg(instr_get_dst(prev, 0)) ){
+
+					if(compare_memory_operands(instr_get_src(prev, 0), mem_addr)){
+						if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst){
+							found_mem = true;
+						}
+						else{
+							break;
+						}
+					}
+					else{
+						if(opnd_get_reg(instr_get_dst(prev, 0)) == reg_dst){
+							break;// both registeres copied from other mem
+						}
+					}
+				     }	
+			       	     prev = instr_get_prev(prev);
+		          	     if(prev == NULL)
+			    		break;
+		          	     prev_opcode = instr_get_opcode(prev);
+				
+
+				}
+				break;
+
+			}
+
 			else{// other movss, continue 
 		          prev = instr_get_prev(prev);
 		          if(prev == NULL)
@@ -997,6 +1097,8 @@ printf("reg1 %s   reg2 %s\n", get_register_name(reg_src), get_register_name(reg_
 		      prev_opcode = instr_get_opcode(prev);
 		    }
 		  }
+
+		}//else of reg_src is not a memory reference
 		  if(prev == NULL || !found_mem){
 //			printf("prev is null or mem moved into other register\n");//go to end
 			//goto callbacks;

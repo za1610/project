@@ -6,7 +6,7 @@
 //#ifdef DEBUG
 //#define SIZE 11
 //#else
-#define SIZE 1000000
+#define SIZE 1000
 //#endif
 
 #define FLOATTYPE float
@@ -149,14 +149,14 @@ void DoTheSummation(FLOATTYPE A[], int size)
 {
 
 	float fr1 = fsumUp(A, size);
-  //      float ffr1 = fsumUp2(A, size);
+        float ffr1 = fsumUp2(A, size);
 	float fr2 = fsumDown(A, size);
-    //    float ffr2 = fsumDown2(A, size);
+        float ffr2 = fsumDown2(A, size);
 //float a = 9 + fr1;	
-//	double dr1 = dsumUp(A, size);
-//	double dr2 = dsumDown(A, size);
-//	float kr1 = kahan_summationUp(A, size);
-//	float kr2 = kahan_summationDown(A, size);	
+	double dr1 = dsumUp(A, size);
+	double dr2 = dsumDown(A, size);
+	float kr1 = kahan_summationUp(A, size);
+	float kr2 = kahan_summationDown(A, size);	
 	float rr = fsumRecursive(A, size);
 //	float frr = fsumRecursive2(A, size);
 
