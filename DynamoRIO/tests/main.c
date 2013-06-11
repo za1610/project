@@ -3,11 +3,11 @@
 
 //#define DEBUG
 
-#ifdef DEBUG
-#define SIZE 11
-#else
-#define SIZE 17000000
-#endif
+//#ifdef DEBUG
+//#define SIZE 11
+//#else
+#define SIZE 1000000
+//#endif
 
 #define FLOATTYPE float
 
@@ -46,8 +46,10 @@ void fillOnes(FLOATTYPE A[], int start, int end, FLOATTYPE from, FLOATTYPE to)
 float fsumUp(FLOATTYPE A[], int size)
 {
 	float r = 0.0f;
+	//float s = 0.0f;
 	for (int i=0; i<size; ++i) {
 		r += A[i];
+	//	s += A[i];
 	}
 	return r;
 }
@@ -147,18 +149,19 @@ void DoTheSummation(FLOATTYPE A[], int size)
 {
 
 	float fr1 = fsumUp(A, size);
-float ffr1 = fsumUp2(A, size);
+  //      float ffr1 = fsumUp2(A, size);
 	float fr2 = fsumDown(A, size);
-float ffr2 = fsumDown2(A, size);
-	double dr1 = dsumUp(A, size);
-	double dr2 = dsumDown(A, size);
-	float kr1 = kahan_summationUp(A, size);
-	float kr2 = kahan_summationDown(A, size);	
+    //    float ffr2 = fsumDown2(A, size);
+//float a = 9 + fr1;	
+//	double dr1 = dsumUp(A, size);
+//	double dr2 = dsumDown(A, size);
+//	float kr1 = kahan_summationUp(A, size);
+//	float kr2 = kahan_summationDown(A, size);	
 	float rr = fsumRecursive(A, size);
-	float frr = fsumRecursive2(A, size);
+//	float frr = fsumRecursive2(A, size);
 
-	printf("Float Up: %.13f\n  Down: %.13f\n  Difference %.13f  Diff double UP %.13lf Diff double DOWN %.13lf\n; Double Up: %.13lf\n  Down: %.13lf\n  Difference %.13lf\n; Kahan Up: %.13f\n  Down: %.13f\n  Difference %.13f Diff double Kahan %.13lf\n; Recursive: %.13f\n Difference %.13lf\n", 
-		   fr1, fr2, fr2-fr1, fr1-dr1, fr2 - dr1,dr1, dr2, dr2-dr1, kr1, kr2, kr2-kr1, kr1 - dr1,  rr, rr-dr1);
+//	printf("Float Up: %.13f\n  Down: %.13f\n  Difference %.13f  Diff double UP %.13lf Diff double DOWN %.13lf\n; Double Up: %.13lf\n  Down: %.13lf\n  Difference %.13lf\n; Kahan Up: %.13f\n  Down: %.13f\n  Difference %.13f Diff double Kahan %.13lf\n; Recursive: %.13f\n Difference %.13lf\n", 
+//		   fr1, fr2, fr2-fr1, fr1-dr1, fr2 - dr1,dr1, dr2, dr2-dr1, kr1, kr2, kr2-kr1, kr1 - dr1,  rr, rr-dr1);
 
 
 printf("Result: Float Up: %.13f\n", fr1);
@@ -176,21 +179,21 @@ void printItForDebug(FLOATTYPE A[], int size)
 }
 
 int main (int argc, const char * argv[]) {
-
+/*
+//float fffr1 = fsumUp(A, SIZE);
 	printf("Ones:      \n");
 	fillOnes(A, 0, SIZE, -1.0f, 1.0f);
+	DoTheSummation(A, SIZE);
+*/
+
+
+	printf("Rand:      \n");
+	fillRand(A, 0, SIZE, 0.0f, 1000.0f);
 	DoTheSummation(A, SIZE);
 	printItForDebug(A, SIZE);
 
 
 /*
-	printf("Rand:      \n");
-	fillRand(A, 0, SIZE, 0.0f, 1000.0f);
-	DoTheSummation(A, SIZE);
-	printItForDebug(A, SIZE);
-*/
-
-	/*
 	printf("RandSorted:\n");
 	fillRandSorted(A, 0, SIZE, -1.0f, 1.0f);
 	DoTheSummation(A, SIZE);
