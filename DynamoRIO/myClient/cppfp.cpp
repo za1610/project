@@ -203,7 +203,6 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 	int bits_distr[25];
 	for(i = 0; i < 25; i++)
 		bits_distr[i] = 0;
-
         if(entry->use_vector){
 
 	  for(i = 0; i < entry->call_count; i++){
@@ -243,17 +242,24 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 	dr_fprintf(logOut, ""PIFX" %d %ld %d  mean %.13lf skewness %.13lf skewness vec %.13lf \n",entry->addr,entry->line_number,
 				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, (double) entry->sum_of_loss/entry->call_count, sk2, skewness);
 */
-
 		if(entry->memory){
-	  		dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf  %.13lf  %.13lf\n",entry->addr,entry->line_number,
+	  		dr_fprintf(logOut, ""PIFX" %d %ld %d %.0lf  %.0lf  %.0lf\n",entry->addr,entry->line_number,
 				round((double)num_of_bits/entry->call_count),entry->no_bits, 
-				mean,  entry->loss, mem_max);
-//				mean*10000000000000, skewness*10000000000000, mem_max, entry->loss);
+				mean*10000000000000,  entry->loss*10000000000000, mem_max*10000000000000);
+
+		//	dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf  %.13lf  %.13lf \n",entry->addr,entry->line_number,
+		//		round((double)num_of_bits/entry->call_count),entry->no_bits, 
+		//		mean,  entry->loss, mem_max);
+
 		}
 		else{
-			dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf  %.13lf  \n",entry->addr,entry->line_number,
+			dr_fprintf(logOut, ""PIFX" %d %ld %d %.0lf  %.0lf  \n",entry->addr,entry->line_number,
 				round((double)num_of_bits/entry->call_count),entry->no_bits, 
-				mean,  entry->loss);
+				mean*10000000000000,  entry->loss*10000000000000);
+		//	dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf  %.13lf \n",entry->addr,entry->line_number,
+		//		round((double)num_of_bits/entry->call_count),entry->no_bits, 
+		//		mean,  entry->loss);
+
 
 		}
         }
@@ -262,16 +268,23 @@ int printAddr(const std::pair<app_pc, inner_hash_entry*>& pair){
 
 	  double mean =  (double) entry->sum_of_loss/entry->call_count;
 	  if(entry->memory){
-	  	dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf   %.13lf\n",entry->addr,entry->line_number,
+	  	dr_fprintf(logOut, ""PIFX" %d %ld %d %.0lf %.0lf   %.0lf\n",entry->addr,entry->line_number,
 				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, 
-				mean,  entry->loss, mem_max);
-			//	mean*10000000000000,0, mem_max, entry->loss);
+				mean*10000000000000,  entry->loss*10000000000000, mem_max*10000000000000);
+		//	dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf  %.13lf  %.13lf\n",entry->addr,entry->line_number,
+		//		round((double)num_of_bits/entry->call_count),entry->no_bits, 
+		//		mean,  entry->loss, mem_max);
+
 
 	  }
 	  else{
- 		dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf %.13lf \n",entry->addr,entry->line_number,
+ 		dr_fprintf(logOut, ""PIFX" %d %ld %d %.0lf %.0lf \n",entry->addr,entry->line_number,
 				round((double)entry->sum_of_bits/entry->call_count),entry->no_bits, 
-				mean,  entry->loss);
+				mean*10000000000000,  entry->loss*10000000000000);
+//			dr_fprintf(logOut, ""PIFX" %d %ld %d %.13lf  %.13lf  \n",entry->addr,entry->line_number,
+//				round((double)num_of_bits/entry->call_count),entry->no_bits, 
+//				mean,  entry->loss);
+
 
 	  }
 	}
@@ -434,7 +447,7 @@ print_address(inner_hash_entry *inVal, int bits, double loss, double lossD, floa
 	}
 
 	if(inVal->loss < fabs(lossD)){
-		inVal->loss = lossD;
+		inVal->loss = fabs(lossD);
 		inVal->index = inVal->call_count;
 	//	printf("MAXIMUM %.13f,   %.13f\n", op1, op2);
 	}
