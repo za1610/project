@@ -145,7 +145,6 @@ static std::map<std::string, outer_hash_entry> functionmap;
 
 static std::map<float*, mem_map_entry*> memorymap;
 
-static std::map<app_pc, bool> testmap;
 
 
 static long int total = 0;
@@ -157,7 +156,7 @@ static long int total = 0;
 
 void printMemVar(const std::pair<float*, memv_entry*>& pair){
         const memv_entry* entry = pair.second;
-	printf("\tmemory address used for storing a var: "PIFX" dsum is %.13lf and fsum is %.13f\n", pair.first, entry->dv,  entry->sv);
+	printf("\tmemory address used for storing a var: %x dsum is %.13lf and fsum is %.13f\n", pair.first, entry->dv,  entry->sv);
 //	*max = entry->dv - entry->sv;
 }
 
@@ -501,7 +500,7 @@ writeCallgrind(int thread_id){
 
 
 bool is_SIMD_arithm(int opcode){
-	return (opcode == OP_addss || opcode == OP_subss
+	return (opcode == OP_addss //|| opcode == OP_subss
 //	|| opcode == OP_addsd ||  opcode == OP_subsd 
 	//    || opcode == OP_mulss || opcode == OP_mulsd || opcode == OP_divss || opcode == OP_divsd ||	
 	//    opcode == OP_sqrtss || opcode == OP_sqrtsd || opcode == OP_rsqrtss
@@ -532,8 +531,26 @@ static int getMMRegisterID(const reg_id_t r)
   DR_ASSERT_MSG(0, "Unable to determine ID of multimedia register");
 }
 
+
 static void 
-getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , float* mem_var){
+catchmem(reg_id_t mem_reg, int dd){
+	dr_mcontext_t mcontext;
+   	memset(&mcontext, 0, sizeof(dr_mcontext_t));
+   	mcontext.flags = DR_MC_ALL;
+   	mcontext.size = sizeof(dr_mcontext_t);
+   	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+		 reg_t mem_reg1 = reg_get_value(mem_reg, &mcontext);
+		int displacement = dd;
+        	float * a = (float*)(mem_reg1 + displacement);
+//		printf("INSIDE cathmem memory is %x, %d  and %s\n ", a, dd, get_register_name(mem_reg));
+
+
+
+}
+
+
+static void 
+getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , reg_id_t mem_reg, int dd){
 //		printf("In getRegReg\n");
 
 //r2 dest, r1 source	
@@ -542,19 +559,17 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , float*
 	const int s2        = getMMRegisterID(r2);
 	dr_mcontext_t mcontext;
    	memset(&mcontext, 0, sizeof(dr_mcontext_t));
-   	mcontext.flags = DR_MC_MULTIMEDIA;
+   	mcontext.flags = DR_MC_ALL;
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	int r, s;
 	int bits = 0;
 	double loss = 0;
 	double lossD = 0;
+//	if(mem_var != NULL && mem_var != 0){
+//	}
 
-//reg_t testreg = reg_get_value(tr, &mcontext);
-//float* maddr = (float*)(testreg  + td);
-//printf("$$$$$$$$$$$ inside getregreg memory is "PIFX" disp %d\n", maddr, td);
-
-		float op1, op2;
+	float op1, op2;
 	if(is_single_precision_instr(opcode)){
 		op1 = *((float*) &mcontext.ymm[s1].u32[0]);
 //printf("OP1 is %f\n", op1);
@@ -587,7 +602,10 @@ getRegReg(reg_id_t r1, reg_id_t r2, int opcode, inner_hash_entry *entry , float*
 			}
 
 if(entry->memory){
-//	printf("memory true "PIFX"\n", mem_var);
+	 reg_t mem_reg1 = reg_get_value(mem_reg, &mcontext);
+         float * mem_var = (float*)(mem_reg1 + dd);
+//	 printf("INSIDE GETREGREG memory is %x, %d  and %s\n ", mem_var, dd, get_register_name(mem_reg));
+
 
         if (entry->mem_map.find(mem_var) == entry->mem_map.end()) {
 //		printf("didnt findmemory  "PIFX"\n", mem_var);
@@ -595,7 +613,8 @@ if(entry->memory){
  			m->dv = 0;
 			m->sv = 0;
 			 entry->mem_map[mem_var] = m;
-}
+			printf("CREATNIG NEW MEM ENTRY 	%x\n",mem_var );
+	}
 	memv_entry * m = entry->mem_map[mem_var];
 	m->dv +=dop2;
 	m->sv +=op2;
@@ -645,7 +664,7 @@ entry->fsum += op2;
 	print_address(entry, bits, loss, lossD, op1, op2);
 }
 
-inner_hash_entry *get_inner_hash_entry(app_pc addr, bool memory, float* mem_var)
+inner_hash_entry *get_inner_hash_entry(app_pc addr, bool memory)
 {
     char sbuf[sizeof(drsym_info_t) + MAX_SYM_RESULT];
     module_data_t *data = dr_lookup_module(addr);
@@ -702,12 +721,13 @@ memory_used += 44;
           inVal->sum_of_bits = 0;
 	  inVal->sum_of_loss = 0;
 	  inVal->use_vector = true;
-if(memory){
+/*if(memory){
 	memv_entry* m = new memv_entry();
 	m->dv = 0;
 	m->sv = 0;
 	inVal->mem_map[mem_var] = m;
 }
+*/
 inVal->fsum = 0;
 inVal->dsum = 0;
 inVal->memory = memory;
@@ -733,7 +753,7 @@ inVal->memory = memory;
 }
 
 static void
-callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_hash_entry *entry, float* mem_var){
+callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_hash_entry *entry, reg_id_t mr, int dd){
 
 
 
@@ -746,6 +766,7 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
    	mcontext.size = sizeof(dr_mcontext_t);
    	bool result = dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 	reg_t mem_reg = reg_get_value(reg, &mcontext);
+
 
 	int bits = 0;
 	double loss = 0;
@@ -785,7 +806,11 @@ callback(reg_id_t reg, int displacement, reg_id_t destReg, int opcode, inner_has
 //				printf("op1 is %f and op2 is %f\n", op1,op2);
 			}
 if(entry->memory){
-//	printf("memory true "PIFX"\n", mem_var);
+
+		 reg_t mem_reg1 = reg_get_value(mr, &mcontext);
+        	float * mem_var = (float*)(mem_reg1 + dd);
+//		printf("INSIDE callback memory is %x\n ", mem_var);
+
 
         if (entry->mem_map.find(mem_var) == entry->mem_map.end()) {
 //		printf("didnt findmemory  "PIFX"\n", mem_var);
@@ -793,6 +818,7 @@ if(entry->memory){
  			m->dv = 0;
 			m->sv = 0;
 			entry->mem_map[mem_var] = m;
+			printf("CREATNIG NEW MEM ENTRY 	%x\n",mem_var );
 }
 	memv_entry * m = entry->mem_map[mem_var];
 	m->dv +=dop2;
@@ -888,9 +914,8 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 		opnd_t source2 = instr_get_src(instr,1);
 		opnd_t dest = instr_get_dst(instr,0);
 float * addr = NULL;
-
+	opnd_t mem_addr;
 	bool found_mem = false;
-//if (testmap.find(pc_addr) == testmap.end()) {
 
 
 		reg_id_t reg_src, reg_dst;
@@ -921,7 +946,7 @@ float * addr = NULL;
 
 		  //found mem_addr where register was copied to, 
 		  //looking for previous load instruction which has the same mem_addr and reg
-                  opnd_t mem_addr = instr_get_dst(next, 0);
+                  mem_addr = instr_get_dst(next, 0);
 
 		  instr_t* prev = instr_get_prev(instr);//NUll case
 		  if(prev == NULL){
@@ -1118,8 +1143,8 @@ printf("reg1 %s   reg2 %s\n", get_register_name(reg_src), get_register_name(reg_
 		  }
 		  else{
 /*
-		//found both load and store -> inserting into memory_map
-		   */ 
+		//found both load and store 
+		    
 		    if(opnd_is_rel_addr(mem_addr)){
 		      addr = (float*)opnd_get_addr(mem_addr);
           		printf("RELATIVE ADDRESS CASE: "PIFX"\n", addr);	
@@ -1138,21 +1163,11 @@ printf("reg1 %s   reg2 %s\n", get_register_name(reg_src), get_register_name(reg_
 	              int displacement = opnd_get_disp(mem_addr);
    		      addr = (float*)(mem_reg + displacement);
 
-//		printf("OTHER ADDRESS CASE: "PIFX"  reg is  %s disp %d "PIFX" \n", addr, get_register_name(reg), displacement, instr_get_app_pc(instr));	
-//			if(addr == 0)
-//				printf("0 in address ref addr\n\n\n");
 		    }
-//testmap[pc_addr] = found_mem;
-
+*/
 		  }//else found mem
 
 	        }
-
-//uncomment this}
-//else{
-//float * b = testmap[pc_addr];
-//}
-//callbacks:	
 
                         if(opnd_is_memory_reference(source1)){
 	//		dr_print_instr(drcontext, logF, instr, "INSTR: ");
@@ -1160,25 +1175,33 @@ printf("reg1 %s   reg2 %s\n", get_register_name(reg_src), get_register_name(reg_
 //			dr_print_opnd(drcontext, logF, source2, "OPND2: ");
 			reg_id_t rd = opnd_get_reg(source2);
 			reg_id_t rs = opnd_get_reg_used(source1, 0);
-                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem, addr);
+                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem);
 			dr_insert_clean_call(drcontext, bb, instr, 
-				(void*) callback, true, 6, 
+				(void*) callback, true, 7, 
 				OPND_CREATE_INTPTR(rs), OPND_CREATE_INTPTR(opnd_get_disp(source1)),
 				OPND_CREATE_INTPTR(rd), OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry)
-				,OPND_CREATE_INTPTR(addr)	
+//				,OPND_CREATE_INTPTR(addr)	
+				,OPND_CREATE_INTPTR(opnd_get_reg_used(mem_addr,0)), OPND_CREATE_INTPTR(opnd_get_disp(mem_addr))
 			);
 
 		}
 		else if(opnd_is_reg(source1) && opnd_is_reg(source2)){
 			reg_id_t reg1 = opnd_get_reg(source1); //source
 			reg_id_t reg2 = opnd_get_reg(source2); //dest
-                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem, addr);
-		//	printf("Before getregreg in bbevent\n");
+                        inner_hash_entry *entry = get_inner_hash_entry(instr_get_app_pc(instr), found_mem);
+//			printf("Before getregreg in bbevent %s\n", get_register_name(opnd_get_reg_used(mem_addr,0)));
+			reg_id_t mr = opnd_get_reg_used(mem_addr, 0);
 			dr_insert_clean_call(drcontext,bb,instr, (void*)getRegReg, 
-				true, 5, 
+				true, 6, 
 				OPND_CREATE_INTPTR(reg1), OPND_CREATE_INTPTR(reg2)
 				,OPND_CREATE_INTPTR(opcode), OPND_CREATE_INTPTR(entry)
-				,OPND_CREATE_INTPTR(addr)	
+				,OPND_CREATE_INTPTR(mr), OPND_CREATE_INTPTR(opnd_get_disp(mem_addr))
+			);
+
+			dr_insert_clean_call(drcontext, bb, next, (void*)catchmem, true, 2
+
+				,OPND_CREATE_INTPTR(mr), OPND_CREATE_INTPTR(opnd_get_disp(mem_addr))
+
 			); 
 		}
 		else{
