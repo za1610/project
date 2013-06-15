@@ -4,7 +4,7 @@
 //#define DEBUG
 
 //#ifdef DEBUG
-#define SIZE 16000000
+#define SIZE 17000000
 //#else
 //#define SIZE 5
 //#endif
@@ -47,12 +47,12 @@ float fsumUp(FLOATTYPE A[], int size)
 {
 //float r[100];
 
-	float r = 0.0f;
+	float r = 17000000.0f;
 //printf("FUNCTION EXECUTION for fsumup %x\n", &r);
 
 	for (int i=0; i<size; ++i) {
 //printf("before sum %f\n", r);
-		r += A[i];
+		r -= A[i];
 //printf("after sum %f\n", r);
 	}
 //	return r[33];
@@ -139,13 +139,13 @@ void DoTheSummation(FLOATTYPE A[], int size)
 {
 
 	float fr1 = fsumUp(A, size);
-	float ffr1 = fsumUp2(A, size);
+//	float ffr1 = fsumUp2(A, size);
 	float fr2 = fsumDown(A, size);
-	double dr1 = dsumUp(A, size);
-	double dr2 = dsumDown(A, size);
-	float fffr1 = fsumUp(A, size);
-	float kr1 = kahan_summationUp(A, size);
-	float kr2 = kahan_summationDown(A, size);	
+//	double dr1 = dsumUp(A, size);
+//	double dr2 = dsumDown(A, size);
+//	float fffr1 = fsumUp(A, size);
+//	float kr1 = kahan_summationUp(A, size);
+//	float kr2 = kahan_summationDown(A, size);	
 	float rr = fsumRecursive(A, size);
 //	printf("Float Up: %.13f\n  Down: %.13f\n  Difference %.13f  Diff double UP %.13lf Diff double DOWN %.13lf\n; Double Up: %.13lf\n  Down: %.13lf\n  Difference %.13lf\n; Kahan Up: %.13f\n  Down: %.13f\n  Difference %.13f Diff double Kahan %.13lf\n; Recursive: %.13f\n Difference %.13lf\n", 
 //		   fr1, fr2, fr2-fr1, fr1-dr1, fr2 - dr1,dr1, dr2, dr2-dr1, kr1, kr2, kr2-kr1, kr1 - dr1,  rr, rr-dr1);
