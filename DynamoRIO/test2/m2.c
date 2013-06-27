@@ -45,23 +45,6 @@ void fillOnes(FLOATTYPE A[], int start, int end, FLOATTYPE from, FLOATTYPE to)
 
 float fsumUp(FLOATTYPE A[], int size)
 {
-//float r[100];
-
-	float r = 17000000.0f;
-//printf("FUNCTION EXECUTION for fsumup %x\n", &r);
-
-	for (int i=0; i<size; ++i) {
-//printf("before sum %f\n", r);
-		r -= A[i];
-//printf("after sum %f\n", r);
-	}
-//	return r[33];
-	return r;
-}
-
-
-float fsumUp2(FLOATTYPE A[], int size)
-{
 	float r = 0.0f;
 	for (int i=0; i<size; ++i) {
 		r += A[i];
@@ -69,13 +52,9 @@ float fsumUp2(FLOATTYPE A[], int size)
 	return r;
 }
 
-
-
 float fsumDown(FLOATTYPE A[], int size)
 {
 	float r = 0.0f;
-//printf("FUNCTION EXECUTION for fsumDOWN %x\n", &r);
-
 	for (int i=size-1; i>=0; --i) {
 		r += A[i];
 	}

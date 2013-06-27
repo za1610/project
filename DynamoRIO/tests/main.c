@@ -6,7 +6,7 @@
 //#ifdef DEBUG
 //#define SIZE 11
 //#else
-#define SIZE 1000
+#define SIZE 30000
 //#endif
 
 #define FLOATTYPE float
